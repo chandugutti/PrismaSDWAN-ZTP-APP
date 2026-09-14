@@ -1,0 +1,7 @@
+prismasase_settings.py
+jobs.json
+cert.crt
+cert.key
+*.pyc
+__pycache__/
+.env

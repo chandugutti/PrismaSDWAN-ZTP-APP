@@ -1,0 +1,3 @@
+flask
+prisma_sase
+gunicorn

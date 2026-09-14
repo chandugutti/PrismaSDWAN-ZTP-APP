@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ION Field Installer</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue: #0070d2;
+      --dark-blue: #003057;
+      --green: #107c10;
+      --red: #d13438;
+      --orange: #d97706;
+      --teal: #0d9488;
+      --gray-bg: #f0f2f5;
+      --gray-border: #e1e4e8;
+      --gray-text: #6b7280;
+      --dark: #111827;
+      --card-bg: #ffffff;
+      --radius: 12px;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray-bg);
+      color: var(--dark);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ── */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: var(--dark-blue);
+      color: #fff;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    header .logo {
+      width: 32px;
+      height: 32px;
+      background: #00c4b4;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    header p {
+      font-size: 12px;
+      opacity: 0.65;
+      margin-top: 1px;
+    }
+
+    header .admin-link {
+      margin-left: auto;
+      color: rgba(255,255,255,0.6);
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    header .admin-link:hover { color: #fff; }
+
+    .content {
+      flex: 1;
+      padding: 24px 16px;
+      overflow-y: auto;
+    }
+
+    /* ── Screens ── */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-text);
+      margin-bottom: 10px;
+    }
+
+    /* ── Forms ── */
+    .field-group { margin-bottom: 16px; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--gray-text);
+      margin-bottom: 6px;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 17px;
+      border: 2px solid var(--gray-border);
+      border-radius: 10px;
+      outline: none;
+      font-family: inherit;
+      background: #fff;
+      color: var(--dark);
+      -webkit-appearance: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus,
+    select:focus { border-color: var(--blue); }
+
+    input::placeholder { color: #c0c4cc; }
+
+    select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-primary:hover { opacity: 0.9; }
+
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-green:hover { opacity: 0.9; }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--blue);
+      border: 2px solid var(--gray-border);
+      font-size: 15px;
+      padding: 13px;
+    }
+
+    .btn-outline:hover { border-color: var(--blue); }
+
+    .btn-sm {
+      width: auto;
+      padding: 10px 20px;
+      font-size: 14px;
+    }
+
+    .btn:disabled { opacity: 0.5; pointer-events: none; }
+
+    /* ── Scan button ── */
+    .scan-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .scan-row input { flex: 1; }
+
+    .btn-scan {
+      flex-shrink: 0;
+      width: 52px;
+      height: 52px;
+      padding: 0;
+      font-size: 22px;
+      background: var(--dark-blue);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Scanner overlay ── */
+    #scanner-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 200;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    #scanner-overlay.open { display: flex; }
+
+    #scanner-overlay p {
+      color: #fff;
+      font-size: 15px;
+      opacity: 0.8;
+    }
+
+    #reader {
+      width: min(340px, 90vw);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    #scanner-overlay .btn-cancel {
+      background: transparent;
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 10px;
+      padding: 12px 32px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    /* ── Error box ── */
+    .error-box {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 14px;
+      color: var(--red);
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+
+    .error-box.show { display: block; }
+
+    /* ── Manual setup section ── */
+    #manual-setup {
+      display: none;
+      margin-top: 16px;
+    }
+
+    #manual-setup.show { display: block; }
+
+    .manual-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--blue);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 12px;
+      background: none;
+      border: none;
+      font-family: inherit;
+      padding: 0;
+    }
+
+    /* ── Screen 2: Confirm ── */
+    .device-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .flow-card {
+      background: var(--card-bg);
+      border: 2px solid var(--gray-border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .flow-card.highlight {
+      border-color: var(--blue);
+      background: #eff6ff;
+    }
+
+    .flow-card-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .flow-card h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .flow-card p {
+      font-size: 13px;
+      color: var(--gray-text);
+      line-height: 1.5;
+    }
+
+    .flow-arrow {
+      text-align: center;
+      font-size: 24px;
+      color: var(--gray-text);
+    }
+
+    .back-link {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--gray-text);
+      font-size: 14px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      padding: 0;
+      margin-top: 16px;
+    }
+
+    /* ── Screen 3: Progress ── */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 16px 0;
+      position: relative;
+    }
+
+    .step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 17px;
+      top: 44px;
+      bottom: 0;
+      width: 2px;
+      background: var(--gray-border);
+    }
+
+    .step.done::after { background: var(--green); }
+
+    .step-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      font-weight: 700;
+      border: 2px solid var(--gray-border);
+      background: #fff;
+      color: var(--gray-text);
+      position: relative;
+      z-index: 1;
+    }
+
+    .step.done .step-icon {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+    }
+
+    .step.active .step-icon {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+
+    .step.failed .step-icon {
+      background: var(--red);
+      border-color: var(--red);
+      color: #fff;
+    }
+
+    .step-body { flex: 1; padding-top: 6px; }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--dark);
+    }
+
+    .step.pending .step-title { color: var(--gray-text); }
+
+    .step-subtitle {
+      font-size: 13px;
+      color: var(--gray-text);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* Status message */
+    .status-msg {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      margin-top: 20px;
+      font-size: 14px;
+      color: var(--gray-text);
+      line-height: 1.5;
+    }
+
+    .elapsed {
+      text-align: center;
+      font-size: 13px;
+      color: var(--gray-text);
+      margin-top: 12px;
+    }
+
+    /* Complete state */
+    .complete-screen {
+      display: none;
+      text-align: center;
+      padding: 16px;
+    }
+
+    .complete-screen.show { display: block; }
+
+    .big-icon {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      margin: 0 auto 24px;
+    }
+
+    .big-icon.success { background: #dcfce7; }
+    .big-icon.failure { background: #fef2f2; }
+
+    @keyframes pop {
+      0% { transform: scale(0.5); opacity: 0; }
+      80% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .big-icon.animate { animation: pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+    .complete-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .complete-subtitle {
+      font-size: 15px;
+      color: var(--gray-text);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .complete-time {
+      font-size: 13px;
+      color: var(--gray-text);
+      margin-bottom: 32px;
+    }
+
+    .divider { height: 1px; background: var(--gray-border); margin: 16px 0; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1f2937;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      z-index: 300;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── Helpers ── */
+    .loading-dots::after {
+      content: '...';
+      animation: dots 1.2s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+      0%,20%{content:''}
+      40%{content:'.'}
+      60%{content:'..'}
+      80%,100%{content:'...'}
+    }
+
+    .mt-8 { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .text-center { text-align: center; }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+  <header>
+    <div class="logo">P</div>
+    <div>
+      <h1>ION Device Installer</h1>
+      <p>Prisma SD-WAN Zero-Touch Provisioning</p>
+    </div>
+    <a class="admin-link" href="/admin">Admin ›</a>
+  </header>
+
+  <div class="content">
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- SCREEN 1: SCAN / SERIAL ENTRY                              -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="screen-scan" class="screen active">
+
+      <div class="card">
+        <div class="card-label">Step 1 of 3 — Find Your Device</div>
+
+        <div class="field-group">
+          <label for="serial-input">Device Serial Number</label>
+          <div class="scan-row">
+            <input
+              type="text"
+              id="serial-input"
+              placeholder="e.g. 10-1234-5678"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              onkeydown="if(event.key==='Enter') findInstallation()">
+            <button class="btn-scan" onclick="openScanner()" title="Scan barcode">📷</button>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="findInstallation()" id="find-btn">
+          Find Installation
+        </button>
+
+        <div class="error-box" id="find-error"></div>
+
+        <!-- Manual setup (shown when no pre-configured job found) -->
+        <button class="manual-toggle" id="manual-toggle" onclick="toggleManual()" style="display:none;">
+          ⚙ Set up manually instead
+        </button>
+
+        <div id="manual-setup">
+          <div class="divider"></div>
+          <div class="card-label" style="margin-top:4px;">Manual Setup — Select Target Location</div>
+          <div class="field-group">
+            <label for="manual-site">Site</label>
+            <select id="manual-site" onchange="onSiteChange()">
+              <option value="">Loading sites…</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="manual-shell">Element Shell</label>
+            <select id="manual-shell">
+              <option value="">Select a site first</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="createAndStartManual()" id="manual-btn">
+            Create &amp; Start Installation
+          </button>
+        </div>
+      </div>
+
+      <p class="text-center" style="font-size:13px;color:var(--gray-text);">
+        The serial number is on the label on the back or bottom of the device.
+      </p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- SCREEN 2: CONFIRM JOB                                      -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="screen-confirm" class="screen">
+      <div class="card">
+        <div class="card-label">Step 2 of 3 — Confirm Installation</div>
+        <div class="device-flow">
+          <div class="flow-card">
+            <div class="flow-card-icon">📦</div>
+            <h3>Device</h3>
+            <p id="confirm-serial">—</p>
+            <p id="confirm-model" style="margin-top:2px;"></p>
+          </div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-card highlight">
+            <div class="flow-card-icon">📍</div>
+            <h3 id="confirm-site">—</h3>
+            <p id="confirm-shell">—</p>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-green mt-16" onclick="beginInstallation()" id="begin-btn">
+        ▶ Begin Installation
+      </button>
+
+      <button class="back-link" onclick="showScreen('screen-scan')">
+        ← Back
+      </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- SCREEN 3: PROGRESS                                         -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="screen-progress" class="screen">
+
+      <!-- Active progress (shown while installing) -->
+      <div id="progress-active">
+        <div class="card">
+          <div class="card-label">Step 3 of 3 — Installation in Progress</div>
+          <div class="steps" id="steps-container">
+
+            <div class="step" id="step-1">
+              <div class="step-icon" id="step-1-icon">1</div>
+              <div class="step-body">
+                <div class="step-title">Locating Device</div>
+                <div class="step-subtitle" id="step-1-sub">Waiting to start…</div>
+              </div>
+            </div>
+
+            <div class="step pending" id="step-2">
+              <div class="step-icon" id="step-2-icon">2</div>
+              <div class="step-body">
+                <div class="step-title">Connecting to Network</div>
+                <div class="step-subtitle" id="step-2-sub">Waiting for device to power on…</div>
+              </div>
+            </div>
+
+            <div class="step pending" id="step-3">
+              <div class="step-icon" id="step-3-icon">3</div>
+              <div class="step-body">
+                <div class="step-title">Assigning Device</div>
+                <div class="step-subtitle" id="step-3-sub">Pending…</div>
+              </div>
+            </div>
+
+            <div class="step pending" id="step-4">
+              <div class="step-icon" id="step-4-icon">4</div>
+              <div class="step-body">
+                <div class="step-title">Installation Complete</div>
+                <div class="step-subtitle" id="step-4-sub">Pending…</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="status-msg" id="status-msg">Starting installation…</div>
+        <div class="elapsed" id="elapsed-timer"></div>
+      </div>
+
+      <!-- Complete state -->
+      <div class="complete-screen" id="complete-success">
+        <div class="big-icon success animate">✅</div>
+        <div class="complete-title">Installation Complete!</div>
+        <div class="complete-subtitle" id="success-site-line">Device is now active.</div>
+        <div class="complete-time" id="success-time"></div>
+        <button class="btn btn-primary" onclick="resetApp()">Install Another Device</button>
+      </div>
+
+      <!-- Failed state -->
+      <div class="complete-screen" id="complete-failed">
+        <div class="big-icon failure animate">❌</div>
+        <div class="complete-title" style="color:var(--red);">Installation Failed</div>
+        <div class="complete-subtitle" id="failed-msg">An error occurred.</div>
+        <div class="complete-time">Contact your supervisor with the error above.</div>
+        <div class="mt-16" style="display:flex;gap:12px;max-width:320px;margin:0 auto;">
+          <button class="btn btn-outline" onclick="resetApp()" style="flex:1;">Start Over</button>
+          <button class="btn btn-primary" onclick="retryJob()" style="flex:1;">Retry</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app-shell -->
+
+<!-- Scanner Overlay -->
+<div id="scanner-overlay">
+  <p>Point camera at the serial number barcode</p>
+  <div id="reader"></div>
+  <div id="scan-confirm" style="display:none; background:#fff; border-radius:10px; padding:14px 16px; margin:12px 0; width:100%; max-width:320px; text-align:center;">
+    <div style="font-size:12px; color:#666; margin-bottom:4px;">Scanned serial:</div>
+    <div id="scan-preview" style="font-family:monospace; font-size:16px; font-weight:700; color:#003057; word-break:break-all; margin-bottom:12px;"></div>
+    <div style="display:flex; gap:8px; justify-content:center;">
+      <button onclick="rejectScan()" style="flex:1; padding:9px; border:1px solid #d1d1d1; border-radius:6px; background:#fff; font-size:13px; cursor:pointer;">Scan Again</button>
+      <button onclick="acceptScan()" style="flex:1; padding:9px; border:none; border-radius:6px; background:#0070d2; color:#fff; font-size:13px; font-weight:600; cursor:pointer;">Use This ✓</button>
+    </div>
+  </div>
+  <button class="btn-cancel" onclick="closeScanner()">Cancel</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentJob = null;
+let pollTimer = null;
+let elapsedTimer = null;
+let startTime = null;
+let allShells = [];
+let html5QrCode = null;
+
+// ── Screen navigation ──────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── Scanner ────────────────────────────────────────────────────────────────
+let _pendingScan = null;
+
+function openScanner() {
+  document.getElementById('scanner-overlay').classList.add('open');
+  document.getElementById('scan-confirm').style.display = 'none';
+  _pendingScan = null;
+
+  // Only Code 128 / Code 39 — excludes EAN/UPC which encode shipping barcodes
+  const formats = [
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.CODE_93,
+    Html5QrcodeSupportedFormats.CODABAR,
+    Html5QrcodeSupportedFormats.ITF,
+  ];
+
+  // Serial number pattern: XXXXXX-XXXXXX-XXXX (digits and dashes)
+  const SERIAL_PATTERN = /^\d{6}-\d{6}-\d{4}$/;
+
+  html5QrCode = new Html5Qrcode('reader', { formatsToSupport: formats });
+  html5QrCode.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 280, height: 100 } },
+    (decodedText) => {
+      if (!SERIAL_PATTERN.test(decodedText.trim())) return; // ignore non-serial barcodes
+      html5QrCode.pause(true);
+      _pendingScan = decodedText.trim();
+      document.getElementById('scan-preview').textContent = _pendingScan;
+      document.getElementById('scan-confirm').style.display = 'block';
+    },
+    () => {}
+  ).catch(() => {
+    closeScanner();
+    showToast('Camera not available — enter serial manually');
+  });
+}
+
+function acceptScan() {
+  document.getElementById('serial-input').value = _pendingScan || '';
+  closeScanner();
+}
+
+function rejectScan() {
+  _pendingScan = null;
+  document.getElementById('scan-confirm').style.display = 'none';
+  if (html5QrCode) html5QrCode.resume();
+}
+
+function closeScanner() {
+  document.getElementById('scanner-overlay').classList.remove('open');
+  document.getElementById('scan-confirm').style.display = 'none';
+  _pendingScan = null;
+  if (html5QrCode) {
+    html5QrCode.stop().catch(() => {});
+    html5QrCode = null;
+  }
+}
+
+// ── Screen 1: Find / Manual ────────────────────────────────────────────────
+async function findInstallation() {
+  const serial = document.getElementById('serial-input').value.trim();
+  if (!serial) { showFindError('Please enter the serial number.'); return; }
+
+  const btn = document.getElementById('find-btn');
+  btn.disabled = true;
+  btn.textContent = 'Searching…';
+  clearFindError();
+
+  try {
+    const res = await fetch('/api/find-job', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ serial })
+    });
+    const data = await res.json();
+
+    if (data.job) {
+      currentJob = data.job;
+      populateConfirmScreen(currentJob);
+      showScreen('screen-confirm');
+    } else {
+      const errMsg = data.error || 'No job found.';
+      showFindError(errMsg);
+      document.getElementById('manual-toggle').style.display = 'flex';
+      loadShellsForManual();
+    }
+  } catch {
+    showFindError('Network error. Please check your connection.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Find Installation';
+  }
+}
+
+function showFindError(msg) {
+  const el = document.getElementById('find-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function clearFindError() {
+  document.getElementById('find-error').classList.remove('show');
+}
+
+function toggleManual() {
+  const el = document.getElementById('manual-setup');
+  el.classList.toggle('show');
+}
+
+async function loadShellsForManual() {
+  if (allShells.length > 0) return;
+  try {
+    const res = await fetch('/api/shells');
+    const data = await res.json();
+    allShells = data.shells || [];
+    populateSiteDropdown();
+  } catch {
+    showToast('Could not load sites — check admin settings');
+  }
+}
+
+function populateSiteDropdown() {
+  const siteSelect = document.getElementById('manual-site');
+  const sites = {};
+  allShells.forEach(s => { sites[s.site_id] = s.site_name; });
+  siteSelect.innerHTML = '<option value="">— Select site —</option>';
+  Object.entries(sites).sort((a,b) => a[1].localeCompare(b[1])).forEach(([id, name]) => {
+    siteSelect.appendChild(new Option(name, id));
+  });
+}
+
+function onSiteChange() {
+  const siteId = document.getElementById('manual-site').value;
+  const shellSelect = document.getElementById('manual-shell');
+  const filtered = allShells.filter(s => s.site_id === siteId);
+  shellSelect.innerHTML = filtered.length
+    ? '<option value="">— Select element shell —</option>'
+    : '<option value="">No shells available at this site</option>';
+  filtered.forEach(s => {
+    const label = s.model ? `${s.name} (${s.model})` : s.name;
+    shellSelect.appendChild(new Option(label, s.id));
+  });
+}
+
+async function createAndStartManual() {
+  const serial = document.getElementById('serial-input').value.trim();
+  const siteId = document.getElementById('manual-site').value;
+  const shellId = document.getElementById('manual-shell').value;
+
+  if (!serial) { showFindError('Please enter a serial number.'); return; }
+  if (!siteId) { showToast('Please select a site.'); return; }
+  if (!shellId) { showToast('Please select an element shell.'); return; }
+
+  const shell = allShells.find(s => s.id === shellId);
+  const btn = document.getElementById('manual-btn');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+
+  try {
+    const createRes = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serial_number: serial,
+        element_id: shell.id,
+        element_name: shell.name,
+        element_model: shell.model,
+        site_id: shell.site_id,
+        site_name: shell.site_name,
+      })
+    });
+    const createData = await createRes.json();
+    if (!createRes.ok) {
+      showFindError(createData.error || 'Could not create job.');
+      return;
+    }
+
+    currentJob = createData.job;
+    const startRes = await fetch(`/api/jobs/${currentJob.id}/start`, { method: 'POST' });
+    const startData = await startRes.json();
+    if (!startRes.ok) {
+      showFindError(startData.error || 'Could not start job.');
+      return;
+    }
+    currentJob = startData.job;
+    startTime = Date.now();
+    showScreen('screen-progress');
+    resetProgressUI();
+    startPolling();
+  } catch {
+    showFindError('Network error. Please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Create & Start Installation';
+  }
+}
+
+// ── Screen 2: Confirm ──────────────────────────────────────────────────────
+function populateConfirmScreen(job) {
+  document.getElementById('confirm-serial').textContent = `Serial: ${job.serial_number}`;
+  document.getElementById('confirm-model').textContent = job.machine_model || job.element_model || '';
+  document.getElementById('confirm-site').textContent = job.site_name;
+  document.getElementById('confirm-shell').textContent = `Shell: ${job.element_name}`;
+}
+
+async function beginInstallation() {
+  const btn = document.getElementById('begin-btn');
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+
+  try {
+    const res = await fetch(`/api/jobs/${currentJob.id}/start`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Could not start.'); btn.disabled = false; btn.textContent = '▶ Begin Installation'; return; }
+    currentJob = data.job;
+    startTime = Date.now();
+    showScreen('screen-progress');
+    resetProgressUI();
+    startPolling();
+  } catch {
+    showToast('Network error. Try again.');
+    btn.disabled = false;
+    btn.textContent = '▶ Begin Installation';
+  }
+}
+
+// ── Screen 3: Progress ─────────────────────────────────────────────────────
+const STEPS = [
+  { id: 'step-1', status: 'searching',      label: 'Locating Device',       activeText: 'Searching for device in system…', doneText: 'Device found' },
+  { id: 'step-2', status: 'waiting_online', label: 'Connecting to Network',  activeText: 'Waiting for device to power on…', doneText: 'Device is online' },
+  { id: 'step-3', status: 'assigning',      label: 'Assigning Device',       activeText: 'Assigning to site…',              doneText: 'Device assigned' },
+  { id: 'step-4', status: 'assigned',       label: 'Installation Complete',  activeText: 'Finalizing…',                     doneText: 'Installation complete!' },
+];
+
+const STATUS_STEP_MAP = {
+  searching:      1,
+  waiting_online: 2,
+  assigning:      3,
+  assigned:       4,
+};
+
+function resetProgressUI() {
+  STEPS.forEach((s, i) => {
+    const el = document.getElementById(s.id);
+    el.className = 'step' + (i === 0 ? '' : ' pending');
+    document.getElementById(`${s.id}-icon`).innerHTML = String(i + 1);
+    document.getElementById(`${s.id}-sub`).textContent = i === 0 ? 'Searching…' : 'Pending…';
+  });
+  document.getElementById('progress-active').style.display = '';
+  document.getElementById('complete-success').classList.remove('show');
+  document.getElementById('complete-failed').classList.remove('show');
+  document.getElementById('status-msg').textContent = 'Starting installation…';
+}
+
+function updateProgressUI(job) {
+  const currentStep = STATUS_STEP_MAP[job.status] || 1;
+
+  STEPS.forEach((s, i) => {
+    const stepNum = i + 1;
+    const el = document.getElementById(s.id);
+    const iconEl = document.getElementById(`${s.id}-icon`);
+    const subEl = document.getElementById(`${s.id}-sub`);
+
+    if (job.status === 'failed' && stepNum === currentStep) {
+      el.className = 'step failed';
+      iconEl.textContent = '✗';
+      subEl.textContent = 'Failed';
+    } else if (stepNum < currentStep || job.status === 'assigned') {
+      el.className = 'step done';
+      iconEl.textContent = '✓';
+      subEl.textContent = s.doneText;
+    } else if (stepNum === currentStep && job.status !== 'assigned') {
+      el.className = 'step active';
+      iconEl.innerHTML = '<div class="spinner"></div>';
+      subEl.textContent = s.activeText;
+    } else {
+      el.className = 'step pending';
+      iconEl.textContent = String(stepNum);
+      subEl.textContent = 'Pending…';
+    }
+  });
+
+  document.getElementById('status-msg').textContent = job.message || '';
+}
+
+function showCompleteSuccess(job) {
+  document.getElementById('progress-active').style.display = 'none';
+  document.getElementById('complete-success').classList.add('show');
+  document.getElementById('success-site-line').textContent = `Device is now active at ${job.site_name}.`;
+  if (startTime) {
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    document.getElementById('success-time').textContent = `Total time: ${formatElapsed(elapsed)}`;
+  }
+}
+
+function showCompleteFailed(job) {
+  document.getElementById('progress-active').style.display = 'none';
+  document.getElementById('complete-failed').classList.add('show');
+  document.getElementById('failed-msg').textContent = job.message || 'An unknown error occurred.';
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollJobStatus, 3000);
+  pollJobStatus();
+  startElapsedTimer();
+}
+
+async function pollJobStatus() {
+  if (!currentJob) return;
+  try {
+    const res = await fetch(`/api/jobs/${currentJob.id}`);
+    const data = await res.json();
+    if (data.job) {
+      currentJob = data.job;
+      updateProgressUI(currentJob);
+      if (currentJob.status === 'assigned') {
+        clearInterval(pollTimer);
+        clearInterval(elapsedTimer);
+        showCompleteSuccess(currentJob);
+      } else if (currentJob.status === 'failed') {
+        clearInterval(pollTimer);
+        clearInterval(elapsedTimer);
+        showCompleteFailed(currentJob);
+      }
+    }
+  } catch { /* network blip, retry next tick */ }
+}
+
+function startElapsedTimer() {
+  if (elapsedTimer) clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    if (!startTime) return;
+    const secs = Math.round((Date.now() - startTime) / 1000);
+    document.getElementById('elapsed-timer').textContent = `Elapsed: ${formatElapsed(secs)}`;
+  }, 1000);
+}
+
+function formatElapsed(secs) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m > 0 ? `${m} min ${s} sec` : `${s} sec`;
+}
+
+// ── Retry / Reset ──────────────────────────────────────────────────────────
+async function retryJob() {
+  if (!currentJob) return;
+  // Reset status to pending via delete + recreate, or just re-create the job
+  // Simple approach: delete failed job, create fresh one, start it
+  try {
+    await fetch(`/api/jobs/${currentJob.id}`, { method: 'DELETE' });
+    const res = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serial_number: currentJob.serial_number,
+        element_id: currentJob.element_id,
+        element_name: currentJob.element_name,
+        element_model: currentJob.element_model,
+        site_id: currentJob.site_id,
+        site_name: currentJob.site_name,
+      })
+    });
+    const createData = await res.json();
+    currentJob = createData.job;
+    const startRes = await fetch(`/api/jobs/${currentJob.id}/start`, { method: 'POST' });
+    const startData = await startRes.json();
+    currentJob = startData.job;
+    startTime = Date.now();
+    resetProgressUI();
+    document.getElementById('complete-failed').classList.remove('show');
+    document.getElementById('progress-active').style.display = '';
+    startPolling();
+  } catch {
+    showToast('Retry failed. Please go back and try again.');
+  }
+}
+
+function resetApp() {
+  if (pollTimer) clearInterval(pollTimer);
+  if (elapsedTimer) clearInterval(elapsedTimer);
+  currentJob = null;
+  startTime = null;
+  document.getElementById('serial-input').value = '';
+  clearFindError();
+  document.getElementById('manual-toggle').style.display = 'none';
+  document.getElementById('manual-setup').classList.remove('show');
+  document.getElementById('complete-success').classList.remove('show');
+  document.getElementById('complete-failed').classList.remove('show');
+  document.getElementById('progress-active').style.display = '';
+  document.getElementById('elapsed-timer').textContent = '';
+  showScreen('screen-scan');
+  document.getElementById('serial-input').focus();
+}
+</script>
+</body>
+</html>

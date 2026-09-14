@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ION Installer — Admin</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --dark-blue: #003057;
+    --blue: #0070d2;
+    --teal: #00c4b4;
+    --green: #107c10;
+    --red: #d13438;
+    --orange: #ca5010;
+    --gray-bg: #f0f2f5;
+    --border: #d1d1d1;
+    --text: #1a1a1a;
+    --text-muted: #666;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--gray-bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--dark-blue);
+    color: #fff;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-brand { display: flex; align-items: center; gap: 12px; }
+  .header-brand .logo {
+    width: 32px; height: 32px; background: var(--blue);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .header-brand h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.2px; }
+  .header-brand span { font-size: 12px; opacity: 0.6; }
+
+  #auth-badge {
+    font-size: 12px; padding: 4px 10px; border-radius: 12px;
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  }
+  #auth-badge.ok { background: rgba(16,124,16,0.3); border-color: #107c10; }
+  #auth-badge.err { background: rgba(209,52,56,0.3); border-color: #d13438; }
+
+  /* ── Tabs ── */
+  .tab-bar {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    gap: 0;
+  }
+  .tab-btn {
+    padding: 14px 20px;
+    border: none; border-bottom: 3px solid transparent;
+    background: none; cursor: pointer;
+    font-size: 14px; font-weight: 500; color: var(--text-muted);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* ── Main content ── */
+  main { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Cards ── */
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .card .card-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+
+  /* ── Forms ── */
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+  input[type="text"], input[type="password"], select {
+    width: 100%; padding: 9px 12px;
+    border: 1px solid var(--border); border-radius: 6px;
+    font-size: 14px; color: var(--text);
+    background: #fff;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus {
+    outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(0,112,210,0.1);
+  }
+  select:disabled { background: #f5f5f5; color: var(--text-muted); cursor: not-allowed; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #005ab3; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover:not(:disabled) { background: #0a5c0a; }
+  .btn-outline {
+    background: transparent; color: var(--blue);
+    border: 1px solid var(--blue);
+  }
+  .btn-outline:hover:not(:disabled) { background: rgba(0,112,210,0.06); }
+  .btn-danger-sm {
+    background: transparent; color: var(--red);
+    border: 1px solid transparent;
+    padding: 4px 10px; font-size: 12px;
+  }
+  .btn-danger-sm:hover { border-color: var(--red); background: rgba(209,52,56,0.06); }
+
+  .btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  /* ── Inline alert / notice ── */
+  .alert {
+    padding: 10px 14px; border-radius: 6px;
+    font-size: 13px; margin-top: 12px;
+    display: none;
+  }
+  .alert.show { display: block; }
+  .alert-ok { background: #dff6dd; color: #107c10; border: 1px solid #9fd89b; }
+  .alert-err { background: #fde7e9; color: #a4262c; border: 1px solid #f1a6a9; }
+  .alert-info { background: #e1efff; color: #004578; border: 1px solid #a9c7f0; }
+
+  /* ── Status badges ── */
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .badge-pending     { background: #f0f0f0; color: #555; }
+  .badge-searching   { background: #ddeeff; color: #004578; }
+  .badge-waiting_online { background: #fff4ce; color: #7d4e00; }
+  .badge-assigning   { background: #d2f4f2; color: #00635b; }
+  .badge-assigned    { background: #dff6dd; color: #107c10; }
+  .badge-failed      { background: #fde7e9; color: #a4262c; }
+  .badge-cancelled   { background: #f0f0f0; color: #888; }
+
+  /* ── Jobs table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 10px 12px;
+    border-bottom: 2px solid var(--border);
+    font-size: 12px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+
+  .serial-cell { font-family: monospace; font-size: 12px; }
+  .time-cell   { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  .msg-cell    { font-size: 12px; color: var(--text-muted); max-width: 220px;
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .empty-state {
+    text-align: center; padding: 48px 24px;
+    color: var(--text-muted); font-size: 14px;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Auto-refresh indicator ── */
+  .refresh-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; font-size: 12px; color: var(--text-muted);
+  }
+  .refresh-dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--text-muted); margin-right: 6px;
+  }
+  .refresh-dot.live { background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── Shell selector ── */
+  .shell-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px;
+    margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .shell-item:hover { border-color: var(--blue); background: rgba(0,112,210,0.03); }
+  .shell-item.selected { border-color: var(--blue); background: #e8f2ff; }
+  .shell-item .shell-name { font-weight: 500; font-size: 14px; }
+  .shell-item .shell-meta { font-size: 12px; color: var(--text-muted); }
+  .shell-item .shell-site { font-size: 12px; color: var(--blue); }
+
+  .site-group { margin-bottom: 20px; }
+  .site-group-header {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+    text-transform: uppercase; color: var(--text-muted);
+    padding: 0 0 6px 0; margin-bottom: 8px;
+    border-bottom: 1px solid #eee;
+  }
+
+  /* ── Spinner ── */
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+  }
+  .spinner-blue {
+    border-color: rgba(0,112,210,0.3);
+    border-top-color: var(--blue);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Connection test ── */
+  #conn-result {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; margin-top: 12px;
+  }
+
+  /* ── Model mismatch warning ── */
+  #model-warning {
+    padding: 8px 12px; background: #fff4ce;
+    border: 1px solid #e8c243; border-radius: 6px;
+    font-size: 13px; color: #7d4e00; margin-top: 12px;
+    display: none;
+  }
+  #model-warning.show { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <div class="logo">⚙</div>
+    <div>
+      <h1>ION Installer Admin</h1>
+      <span>Prisma SD-WAN Field Deployment</span>
+    </div>
+  </div>
+  <div id="auth-badge">Checking…</div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="tab-settings">Settings</button>
+  <button class="tab-btn" data-tab="tab-create">Create Job</button>
+  <button class="tab-btn" data-tab="tab-jobs">All Jobs</button>
+</div>
+
+<main>
+
+  <!-- ══════════════════════════════════ SETTINGS ══════════════════════════════════ -->
+  <div id="tab-settings" class="tab-panel active">
+    <div class="card">
+      <h2>API Credentials</h2>
+      <p class="card-desc">Service account credentials for the Prisma SASE tenant. Changes take effect immediately — the SDK will re-authenticate on the next request.</p>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="s-client-id">Client ID</label>
+          <input type="text" id="s-client-id" placeholder="Enter client ID">
+        </div>
+        <div class="form-group">
+          <label for="s-tsg-id">TSG ID</label>
+          <input type="text" id="s-tsg-id" placeholder="Enter TSG ID">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="s-client-secret">Client Secret</label>
+        <input type="password" id="s-client-secret" placeholder="Enter client secret">
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="save-settings-btn" onclick="saveSettings()">Save Credentials</button>
+        <button class="btn btn-outline" id="test-conn-btn" onclick="testConnection()">Test Connection</button>
+      </div>
+
+      <div id="settings-alert" class="alert"></div>
+      <div id="conn-result" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ CREATE JOB ══════════════════════════════════ -->
+  <div id="tab-create" class="tab-panel">
+    <div class="card">
+      <h2>Create Installation Job</h2>
+      <p class="card-desc">Pre-configure a job for a field technician. Enter the device serial number and select the target site and element shell. The tech only needs to enter the serial number on their phone to start the installation.</p>
+
+      <div class="form-group">
+        <label for="c-serial">Device Serial Number</label>
+        <input type="text" id="c-serial" placeholder="e.g. ION-XXXXXXXX" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      </div>
+
+      <div class="form-group">
+        <label for="c-site">Site</label>
+        <select id="c-site" onchange="filterShells()" disabled>
+          <option value="">Loading sites…</option>
+        </select>
+      </div>
+
+      <div id="shell-list-wrap" style="display:none">
+        <label style="font-size:13px; font-weight:500; margin-bottom:8px; display:block">Element Shell</label>
+        <div id="shell-list"></div>
+      </div>
+
+      <div id="model-warning"></div>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn btn-success" id="create-job-btn" onclick="createJob()" disabled>Create Job</button>
+        <button class="btn btn-outline" onclick="loadShells()">↺ Refresh Shells</button>
+      </div>
+
+      <div id="create-alert" class="alert"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ ALL JOBS ══════════════════════════════════ -->
+  <div id="tab-jobs" class="tab-panel">
+    <div class="refresh-bar">
+      <div>
+        <span class="refresh-dot" id="live-dot"></span>
+        <span id="refresh-label">Loading…</span>
+      </div>
+      <button class="btn btn-outline" style="padding:5px 12px; font-size:12px" onclick="loadJobs()">↺ Refresh Now</button>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden">
+      <div class="table-wrap" id="jobs-table-wrap">
+        <div class="empty-state">
+          <div class="icon">⏳</div>
+          Loading jobs…
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+
+let allShells = [];
+let selectedShell = null;
+let jobsRefreshTimer = null;
+
+// ── Tab switching ──────────────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+
+    if (btn.dataset.tab === 'tab-jobs') {
+      startJobsRefresh();
+    } else {
+      stopJobsRefresh();
+    }
+  });
+});
+
+// ── Auth badge ─────────────────────────────────────────────────────────────────
+
+async function checkAuthBadge() {
+  try {
+    const r = await fetch('/api/auth-status');
+    const d = await r.json();
+    const badge = document.getElementById('auth-badge');
+    if (d.ok) {
+      badge.textContent = '● Connected: ' + d.tenant;
+      badge.className = 'ok';
+    } else {
+      badge.textContent = '✗ Not connected';
+      badge.className = 'err';
+    }
+  } catch {
+    document.getElementById('auth-badge').textContent = '✗ Error';
+  }
+}
+
+// ── Settings tab ───────────────────────────────────────────────────────────────
+
+async function loadSettings() {
+  try {
+    const r = await fetch('/api/settings');
+    const d = await r.json();
+    document.getElementById('s-client-id').value = d.client_id || '';
+    document.getElementById('s-client-secret').value = d.client_secret || '';
+    document.getElementById('s-tsg-id').value = d.tsg_id || '';
+  } catch { /* ignore */ }
+}
+
+async function saveSettings() {
+  const btn = document.getElementById('save-settings-btn');
+  const alert = document.getElementById('settings-alert');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+  hideAlert('settings-alert');
+
+  try {
+    const r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: document.getElementById('s-client-id').value.trim(),
+        client_secret: document.getElementById('s-client-secret').value.trim(),
+        tsg_id: document.getElementById('s-tsg-id').value.trim(),
+      }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showAlert('settings-alert', 'ok', 'Credentials saved successfully.');
+      checkAuthBadge();
+    } else {
+      showAlert('settings-alert', 'err', d.error || 'Save failed.');
+    }
+  } catch (e) {
+    showAlert('settings-alert', 'err', 'Network error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Credentials';
+  }
+}
+
+async function testConnection() {
+  const btn = document.getElementById('test-conn-btn');
+  const result = document.getElementById('conn-result');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner spinner-blue"></span> Testing…';
+  result.style.display = 'none';
+
+  try {
+    const r = await fetch('/api/auth-status');
+    const d = await r.json();
+    result.style.display = 'flex';
+    if (d.ok) {
+      result.innerHTML = `<span style="color:var(--green)">✔</span> Connected to tenant: <strong>${d.tenant}</strong>`;
+      checkAuthBadge();
+    } else {
+      result.innerHTML = `<span style="color:var(--red)">✗</span> ${d.error || 'Authentication failed'}`;
+    }
+  } catch (e) {
+    result.style.display = 'flex';
+    result.innerHTML = `<span style="color:var(--red)">✗</span> Network error: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Test Connection';
+  }
+}
+
+// ── Create Job tab ─────────────────────────────────────────────────────────────
+
+async function loadShells() {
+  const siteSelect = document.getElementById('c-site');
+  siteSelect.disabled = true;
+  siteSelect.innerHTML = '<option>Loading…</option>';
+  document.getElementById('shell-list-wrap').style.display = 'none';
+  selectedShell = null;
+  document.getElementById('create-job-btn').disabled = true;
+
+  try {
+    const r = await fetch('/api/shells');
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+
+    allShells = d.shells || [];
+
+    // Build unique sites list
+    const sites = {};
+    allShells.forEach(s => { sites[s.site_id] = s.site_name; });
+
+    siteSelect.innerHTML = '<option value="">— Select a site —</option>';
+    Object.entries(sites)
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .forEach(([id, name]) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = name;
+        siteSelect.appendChild(opt);
+      });
+
+    siteSelect.disabled = false;
+  } catch (e) {
+    siteSelect.innerHTML = '<option value="">Failed to load — check credentials</option>';
+    siteSelect.disabled = false;
+  }
+}
+
+function filterShells() {
+  const siteId = document.getElementById('c-site').value;
+  const wrap = document.getElementById('shell-list-wrap');
+  const list = document.getElementById('shell-list');
+  selectedShell = null;
+  document.getElementById('create-job-btn').disabled = true;
+  document.getElementById('model-warning').classList.remove('show');
+
+  if (!siteId) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  const filtered = allShells.filter(s => s.site_id === siteId);
+  if (!filtered.length) {
+    list.innerHTML = '<p style="font-size:13px; color:var(--text-muted); padding:8px 0">No available element shells at this site.</p>';
+    wrap.style.display = 'block';
+    return;
+  }
+
+  list.innerHTML = '';
+  filtered.forEach(shell => {
+    const item = document.createElement('div');
+    item.className = 'shell-item';
+    item.dataset.id = shell.id;
+    item.innerHTML = `
+      <div>
+        <div class="shell-name">${esc(shell.name)}</div>
+        <div class="shell-meta">${esc(shell.model) || 'Model unknown'} &middot; State: ${esc(shell.state) || 'unknown'}</div>
+      </div>
+      <div class="shell-site">${esc(shell.site_name)}</div>
+    `;
+    item.addEventListener('click', () => selectShell(shell, item));
+    list.appendChild(item);
+  });
+
+  wrap.style.display = 'block';
+}
+
+function selectShell(shell, el) {
+  document.querySelectorAll('.shell-item').forEach(i => i.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedShell = shell;
+  checkModelMatch();
+}
+
+function checkModelMatch() {
+  const serial = document.getElementById('c-serial').value.trim();
+  document.getElementById('create-job-btn').disabled = !serial || !selectedShell;
+}
+
+document.getElementById('c-serial').addEventListener('input', checkModelMatch);
+
+async function createJob() {
+  const serial = document.getElementById('c-serial').value.trim();
+  if (!serial || !selectedShell) return;
+
+  const btn = document.getElementById('create-job-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Creating…';
+  hideAlert('create-alert');
+
+  try {
+    const r = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serial_number: serial,
+        element_id: selectedShell.id,
+        element_name: selectedShell.name,
+        element_model: selectedShell.model,
+        site_id: selectedShell.site_id,
+        site_name: selectedShell.site_name,
+      }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showAlert('create-alert', 'ok',
+        `✔ Job created for serial <strong>${esc(serial)}</strong> → ${esc(selectedShell.site_name)} / ${esc(selectedShell.name)}`);
+      document.getElementById('c-serial').value = '';
+      document.querySelectorAll('.shell-item').forEach(i => i.classList.remove('selected'));
+      selectedShell = null;
+      btn.disabled = true;
+    } else {
+      showAlert('create-alert', 'err', d.error || 'Failed to create job.');
+    }
+  } catch (e) {
+    showAlert('create-alert', 'err', 'Network error: ' + e.message);
+  } finally {
+    btn.disabled = !document.getElementById('c-serial').value.trim() || !selectedShell;
+    btn.textContent = 'Create Job';
+  }
+}
+
+// ── Jobs tab ───────────────────────────────────────────────────────────────────
+
+async function loadJobs() {
+  try {
+    const r = await fetch('/api/jobs');
+    const d = await r.json();
+    renderJobs(d.jobs || []);
+
+    const hasActive = (d.jobs || []).some(j =>
+      ['searching', 'waiting_online', 'assigning'].includes(j.status));
+
+    const dot = document.getElementById('live-dot');
+    const label = document.getElementById('refresh-label');
+    dot.className = 'refresh-dot' + (hasActive ? ' live' : '');
+    label.textContent = hasActive
+      ? 'Auto-refreshing every 10s (jobs in progress)'
+      : 'Last refreshed: ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    document.getElementById('jobs-table-wrap').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div>Failed to load jobs: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderJobs(jobs) {
+  const wrap = document.getElementById('jobs-table-wrap');
+  if (!jobs.length) {
+    wrap.innerHTML = `<div class="empty-state"><div class="icon">📋</div>No jobs yet. Create one in the "Create Job" tab.</div>`;
+    return;
+  }
+
+  const rows = jobs.map(j => `
+    <tr>
+      <td class="serial-cell">${esc(j.serial_number)}</td>
+      <td>${esc(j.machine_model || j.element_model || '—')}</td>
+      <td>${esc(j.site_name)}</td>
+      <td>${esc(j.element_name)}</td>
+      <td><span class="badge badge-${j.status}">${statusLabel(j.status)}</span></td>
+      <td class="msg-cell" title="${esc(j.message || '')}">${esc(j.message || '—')}</td>
+      <td class="time-cell">${fmtDate(j.created_at)}</td>
+      <td class="time-cell">${j.assigned_at ? fmtDate(j.assigned_at) : '—'}</td>
+      <td>
+        <button class="btn btn-danger-sm" onclick="deleteJob('${j.id}', '${esc(j.serial_number)}')">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Serial</th>
+          <th>Model</th>
+          <th>Site</th>
+          <th>Shell</th>
+          <th>Status</th>
+          <th>Message</th>
+          <th>Created</th>
+          <th>Completed</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+async function deleteJob(id, serial) {
+  if (!confirm(`Delete job for serial "${serial}"?`)) return;
+  try {
+    await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
+    loadJobs();
+  } catch { /* ignore */ }
+}
+
+function startJobsRefresh() {
+  loadJobs();
+  stopJobsRefresh();
+  jobsRefreshTimer = setInterval(loadJobs, 10000);
+}
+
+function stopJobsRefresh() {
+  if (jobsRefreshTimer) { clearInterval(jobsRefreshTimer); jobsRefreshTimer = null; }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function showAlert(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = `alert show alert-${type}`;
+  el.innerHTML = msg;
+}
+function hideAlert(id) {
+  const el = document.getElementById(id);
+  el.className = 'alert';
+  el.innerHTML = '';
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function statusLabel(s) {
+  return {
+    pending: 'Pending',
+    searching: 'Searching',
+    waiting_online: 'Waiting Online',
+    assigning: 'Assigning',
+    assigned: 'Assigned ✓',
+    failed: 'Failed',
+    cancelled: 'Cancelled',
+  }[s] || s;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return iso; }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+
+checkAuthBadge();
+loadSettings();
+loadShells();
+</script>
+</body>
+</html>
