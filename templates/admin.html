@@ -3,17 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ION Installer — Admin</title>
+<title>ION Installer — Admin Settings</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
     --dark-blue: #003057;
     --blue: #0070d2;
-    --teal: #00c4b4;
     --green: #107c10;
     --red: #d13438;
-    --orange: #ca5010;
     --gray-bg: #f0f2f5;
     --border: #d1d1d1;
     --text: #1a1a1a;
@@ -27,7 +25,6 @@
     min-height: 100vh;
   }
 
-  /* ── Header ── */
   header {
     background: var(--dark-blue);
     color: #fff;
@@ -53,34 +50,11 @@
     font-size: 12px; padding: 4px 10px; border-radius: 12px;
     background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
   }
-  #auth-badge.ok { background: rgba(16,124,16,0.3); border-color: #107c10; }
-  #auth-badge.err { background: rgba(209,52,56,0.3); border-color: #d13438; }
+  #auth-badge.ok  { background: rgba(16,124,16,0.3);  border-color: #107c10; }
+  #auth-badge.err { background: rgba(209,52,56,0.3);  border-color: #d13438; }
 
-  /* ── Tabs ── */
-  .tab-bar {
-    background: #fff;
-    border-bottom: 1px solid var(--border);
-    padding: 0 24px;
-    display: flex;
-    gap: 0;
-  }
-  .tab-btn {
-    padding: 14px 20px;
-    border: none; border-bottom: 3px solid transparent;
-    background: none; cursor: pointer;
-    font-size: 14px; font-weight: 500; color: var(--text-muted);
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
-  .tab-btn:hover:not(.active) { color: var(--text); }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 24px; }
 
-  /* ── Main content ── */
-  main { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
-
-  .tab-panel { display: none; }
-  .tab-panel.active { display: block; }
-
-  /* ── Cards ── */
   .card {
     background: #fff;
     border: 1px solid var(--border);
@@ -91,25 +65,20 @@
   .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
   .card .card-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
 
-  /* ── Forms ── */
   .form-group { margin-bottom: 16px; }
   label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
-  input[type="text"], input[type="password"], select {
+  input[type="text"], input[type="password"] {
     width: 100%; padding: 9px 12px;
     border: 1px solid var(--border); border-radius: 6px;
     font-size: 14px; color: var(--text);
-    background: #fff;
     transition: border-color 0.15s;
   }
-  input:focus, select:focus {
+  input:focus {
     outline: none; border-color: var(--blue);
     box-shadow: 0 0 0 3px rgba(0,112,210,0.1);
   }
-  select:disabled { background: #f5f5f5; color: var(--text-muted); cursor: not-allowed; }
-
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
-  /* ── Buttons ── */
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 9px 18px; border: none; border-radius: 6px;
@@ -119,134 +88,68 @@
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-primary { background: var(--blue); color: #fff; }
   .btn-primary:hover:not(:disabled) { background: #005ab3; }
-  .btn-success { background: var(--green); color: #fff; }
-  .btn-success:hover:not(:disabled) { background: #0a5c0a; }
   .btn-outline {
     background: transparent; color: var(--blue);
     border: 1px solid var(--blue);
   }
   .btn-outline:hover:not(:disabled) { background: rgba(0,112,210,0.06); }
-  .btn-danger-sm {
-    background: transparent; color: var(--red);
-    border: 1px solid transparent;
-    padding: 4px 10px; font-size: 12px;
-  }
-  .btn-danger-sm:hover { border-color: var(--red); background: rgba(209,52,56,0.06); }
-
   .btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-  /* ── Inline alert / notice ── */
   .alert {
     padding: 10px 14px; border-radius: 6px;
-    font-size: 13px; margin-top: 12px;
-    display: none;
+    font-size: 13px; margin-top: 12px; display: none;
   }
   .alert.show { display: block; }
-  .alert-ok { background: #dff6dd; color: #107c10; border: 1px solid #9fd89b; }
+  .alert-ok  { background: #dff6dd; color: #107c10; border: 1px solid #9fd89b; }
   .alert-err { background: #fde7e9; color: #a4262c; border: 1px solid #f1a6a9; }
-  .alert-info { background: #e1efff; color: #004578; border: 1px solid #a9c7f0; }
 
-  /* ── Status badges ── */
-  .badge {
-    display: inline-block; padding: 2px 9px; border-radius: 10px;
-    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
-  }
-  .badge-pending     { background: #f0f0f0; color: #555; }
-  .badge-searching   { background: #ddeeff; color: #004578; }
-  .badge-waiting_online { background: #fff4ce; color: #7d4e00; }
-  .badge-assigning   { background: #d2f4f2; color: #00635b; }
-  .badge-assigned    { background: #dff6dd; color: #107c10; }
-  .badge-failed      { background: #fde7e9; color: #a4262c; }
-  .badge-cancelled   { background: #f0f0f0; color: #888; }
-
-  /* ── Jobs table ── */
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th {
-    text-align: left; padding: 10px 12px;
-    border-bottom: 2px solid var(--border);
-    font-size: 12px; font-weight: 600; color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.5px;
-    white-space: nowrap;
-  }
-  td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: #fafafa; }
-
-  .serial-cell { font-family: monospace; font-size: 12px; }
-  .time-cell   { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-  .msg-cell    { font-size: 12px; color: var(--text-muted); max-width: 220px;
-                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  .empty-state {
-    text-align: center; padding: 48px 24px;
-    color: var(--text-muted); font-size: 14px;
-  }
-  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
-
-  /* ── Auto-refresh indicator ── */
-  .refresh-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 16px; font-size: 12px; color: var(--text-muted);
-  }
-  .refresh-dot {
-    display: inline-block; width: 8px; height: 8px;
-    border-radius: 50%; background: var(--text-muted); margin-right: 6px;
-  }
-  .refresh-dot.live { background: var(--green); animation: pulse 2s infinite; }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  /* ── Shell selector ── */
-  .shell-item {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px;
-    margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
-  }
-  .shell-item:hover { border-color: var(--blue); background: rgba(0,112,210,0.03); }
-  .shell-item.selected { border-color: var(--blue); background: #e8f2ff; }
-  .shell-item .shell-name { font-weight: 500; font-size: 14px; }
-  .shell-item .shell-meta { font-size: 12px; color: var(--text-muted); }
-  .shell-item .shell-site { font-size: 12px; color: var(--blue); }
-
-  .site-group { margin-bottom: 20px; }
-  .site-group-header {
-    font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
-    text-transform: uppercase; color: var(--text-muted);
-    padding: 0 0 6px 0; margin-bottom: 8px;
-    border-bottom: 1px solid #eee;
-  }
-
-  /* ── Spinner ── */
-  .spinner {
-    display: inline-block; width: 16px; height: 16px;
-    border: 2px solid rgba(255,255,255,0.4);
-    border-top-color: #fff; border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    vertical-align: middle;
-  }
-  .spinner-blue {
-    border-color: rgba(0,112,210,0.3);
-    border-top-color: var(--blue);
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ── Connection test ── */
   #conn-result {
     display: flex; align-items: center; gap: 8px;
     font-size: 13px; margin-top: 12px;
   }
 
-  /* ── Model mismatch warning ── */
-  #model-warning {
-    padding: 8px 12px; background: #fff4ce;
-    border: 1px solid #e8c243; border-radius: 6px;
-    font-size: 13px; color: #7d4e00; margin-top: 12px;
-    display: none;
+  /* ── Toggle switch ── */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid #f0f0f0; margin-bottom: 12px;
   }
-  #model-warning.show { display: block; }
+  .toggle-label { font-size: 13px; font-weight: 500; }
+  .toggle-desc  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .toggle {
+    position: relative; display: inline-block;
+    width: 42px; height: 24px; flex-shrink: 0; margin-left: 16px;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #ccc; border-radius: 24px;
+    transition: background 0.2s;
+  }
+  .toggle-slider::before {
+    content: ''; position: absolute;
+    width: 18px; height: 18px; border-radius: 50%;
+    left: 3px; bottom: 3px; background: #fff;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .toggle input:checked + .toggle-slider { background: var(--blue); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+  .loc-override {
+    overflow: hidden; max-height: 300px; opacity: 1;
+    transition: max-height 0.25s ease, opacity 0.2s;
+  }
+  .loc-override.hidden { max-height: 0; opacity: 0; pointer-events: none; }
+
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.7s linear infinite; vertical-align: middle;
+  }
+  .spinner-blue { border-color: rgba(0,112,210,0.3); border-top-color: var(--blue); }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -262,130 +165,131 @@
   <div id="auth-badge">Checking…</div>
 </header>
 
-<div class="tab-bar">
-  <button class="tab-btn active" data-tab="tab-settings">Settings</button>
-  <button class="tab-btn" data-tab="tab-create">Create Job</button>
-  <button class="tab-btn" data-tab="tab-jobs">All Jobs</button>
-</div>
-
 <main>
 
-  <!-- ══════════════════════════════════ SETTINGS ══════════════════════════════════ -->
-  <div id="tab-settings" class="tab-panel active">
-    <div class="card">
-      <h2>API Credentials</h2>
-      <p class="card-desc">Service account credentials for the Prisma SASE tenant. Changes take effect immediately — the SDK will re-authenticate on the next request.</p>
+  <!-- API Credentials -->
+  <div class="card">
+    <h2>API Credentials</h2>
+    <p class="card-desc">Service account credentials for the Prisma SASE tenant. Changes take effect immediately — the SDK re-authenticates on the next request.</p>
 
+    <div class="form-row">
+      <div class="form-group">
+        <label for="s-client-id">Client ID</label>
+        <input type="text" id="s-client-id" placeholder="Enter client ID">
+      </div>
+      <div class="form-group">
+        <label for="s-tsg-id">TSG ID</label>
+        <input type="text" id="s-tsg-id" placeholder="Enter TSG ID">
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="s-client-secret">Client Secret</label>
+      <input type="password" id="s-client-secret" placeholder="Enter client secret">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="save-settings-btn" onclick="saveSettings()">Save Credentials</button>
+      <button class="btn btn-outline" id="test-conn-btn" onclick="testConnection()">Test Connection</button>
+    </div>
+
+    <div id="settings-alert" class="alert"></div>
+    <div id="conn-result" style="display:none"></div>
+  </div>
+
+  <!-- Location Testing -->
+  <div class="card">
+    <h2>📍 Location Testing</h2>
+    <p class="card-desc">In a lab, devices have private IPs that cannot be geolocated. Use these knobs to override the location for testing. In production, leave all overrides off.</p>
+
+    <div class="form-group">
+      <label for="loc-radius">Search Radius (km)</label>
+      <input type="text" id="loc-radius" placeholder="50" style="max-width:140px">
+      <div style="font-size:12px; color:var(--text-muted); margin-top:4px">Sites within this distance from the device IP location are shown as candidates.</div>
+    </div>
+
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Use Test Location Override</div>
+        <div class="toggle-desc">Ignore the device WAN IP — use the lat/lon below for site matching instead</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="loc-use-test" onchange="toggleLocOverrideFields()">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div id="loc-override-fields" class="loc-override hidden">
       <div class="form-row">
         <div class="form-group">
-          <label for="s-client-id">Client ID</label>
-          <input type="text" id="s-client-id" placeholder="Enter client ID">
+          <label for="loc-lat">Test Latitude</label>
+          <input type="text" id="loc-lat" placeholder="e.g. 37.3861">
         </div>
         <div class="form-group">
-          <label for="s-tsg-id">TSG ID</label>
-          <input type="text" id="s-tsg-id" placeholder="Enter TSG ID">
+          <label for="loc-lon">Test Longitude</label>
+          <input type="text" id="loc-lon" placeholder="e.g. -122.0839">
         </div>
       </div>
       <div class="form-group">
-        <label for="s-client-secret">Client Secret</label>
-        <input type="password" id="s-client-secret" placeholder="Enter client secret">
+        <label for="loc-test-ip">Test IP Address <span style="font-weight:400; color:var(--text-muted)">(optional)</span></label>
+        <input type="text" id="loc-test-ip" placeholder="e.g. 8.8.8.8 — overrides device WAN IP before geolocation">
       </div>
-
-      <div class="btn-row">
-        <button class="btn btn-primary" id="save-settings-btn" onclick="saveSettings()">Save Credentials</button>
-        <button class="btn btn-outline" id="test-conn-btn" onclick="testConnection()">Test Connection</button>
-      </div>
-
-      <div id="settings-alert" class="alert"></div>
-      <div id="conn-result" style="display:none"></div>
     </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="save-loc-btn" onclick="saveLocationSettings()">Save Location Settings</button>
+    </div>
+    <div id="loc-alert" class="alert"></div>
   </div>
 
-  <!-- ══════════════════════════════════ CREATE JOB ══════════════════════════════════ -->
-  <div id="tab-create" class="tab-panel">
-    <div class="card">
-      <h2>Create Installation Job</h2>
-      <p class="card-desc">Pre-configure a job for a field technician. Enter the device serial number and select the target site and element shell. The tech only needs to enter the serial number on their phone to start the installation.</p>
-
-      <div class="form-group">
-        <label for="c-serial">Device Serial Number</label>
-        <input type="text" id="c-serial" placeholder="e.g. ION-XXXXXXXX" autocomplete="off" autocapitalize="characters" spellcheck="false">
-      </div>
-
-      <div class="form-group">
-        <label for="c-site">Site</label>
-        <select id="c-site" onchange="filterShells()" disabled>
-          <option value="">Loading sites…</option>
-        </select>
-      </div>
-
-      <div id="shell-list-wrap" style="display:none">
-        <label style="font-size:13px; font-weight:500; margin-bottom:8px; display:block">Element Shell</label>
-        <div id="shell-list"></div>
-      </div>
-
-      <div id="model-warning"></div>
-
-      <div class="btn-row" style="margin-top:16px">
-        <button class="btn btn-success" id="create-job-btn" onclick="createJob()" disabled>Create Job</button>
-        <button class="btn btn-outline" onclick="loadShells()">↺ Refresh Shells</button>
-      </div>
-
-      <div id="create-alert" class="alert"></div>
+  <!-- Active Jobs -->
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+      <h2>🔧 Active Jobs</h2>
+      <button class="btn btn-outline" onclick="loadJobs()" style="padding:5px 12px; font-size:12px;">↻ Refresh</button>
     </div>
-  </div>
+    <p class="card-desc">All installation jobs. Delete a stuck or duplicate job to unblock a field tech.</p>
 
-  <!-- ══════════════════════════════════ ALL JOBS ══════════════════════════════════ -->
-  <div id="tab-jobs" class="tab-panel">
-    <div class="refresh-bar">
-      <div>
-        <span class="refresh-dot" id="live-dot"></span>
-        <span id="refresh-label">Loading…</span>
-      </div>
-      <button class="btn btn-outline" style="padding:5px 12px; font-size:12px" onclick="loadJobs()">↺ Refresh Now</button>
+    <div id="jobs-table-wrap">
+      <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:13px;">Loading jobs…</div>
     </div>
-
-    <div class="card" style="padding:0; overflow:hidden">
-      <div class="table-wrap" id="jobs-table-wrap">
-        <div class="empty-state">
-          <div class="icon">⏳</div>
-          Loading jobs…
-        </div>
-      </div>
-    </div>
+    <div id="jobs-alert" class="alert"></div>
   </div>
 
 </main>
 
+<style>
+  .jobs-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .jobs-table th { text-align:left; font-weight:600; padding:8px 10px; border-bottom:2px solid var(--border); color:var(--text-muted); font-size:12px; text-transform:uppercase; letter-spacing:0.3px; }
+  .jobs-table td { padding:9px 10px; border-bottom:1px solid #f0f0f0; vertical-align:middle; word-break:break-word; }
+  .jobs-table tr:last-child td { border-bottom:none; }
+  .status-badge {
+    display:inline-block; padding:2px 8px; border-radius:10px;
+    font-size:11px; font-weight:600; white-space:nowrap;
+  }
+  .s-pending       { background:#e5e5e5; color:#444; }
+  .s-searching     { background:#dbeafe; color:#1d4ed8; }
+  .s-waiting_online{ background:#fef3c7; color:#92400e; }
+  .s-assigning     { background:#d1fae5; color:#065f46; }
+  .s-provisioning  { background:#ede9fe; color:#5b21b6; }
+  .s-upgrading     { background:#e0f2fe; color:#0c4a6e; }
+  .s-fabric_check  { background:#cffafe; color:#155e75; }
+  .s-assigned      { background:#d1fae5; color:#065f46; }
+  .s-failed        { background:#fee2e2; color:#991b1b; }
+  .btn-del { background:transparent; border:1px solid var(--red); color:var(--red); border-radius:5px; padding:4px 10px; font-size:12px; cursor:pointer; white-space:nowrap; }
+  .btn-del:hover { background:var(--red); color:#fff; }
+</style>
+
 <script>
-// ── State ──────────────────────────────────────────────────────────────────────
+const BASE = (() => {
+  const m = window.location.pathname.match(/^(\/presentation\/[^/]+\/[^/]+)/);
+  return m ? m[1] : '';
+})();
 
-let allShells = [];
-let selectedShell = null;
-let jobsRefreshTimer = null;
-
-// ── Tab switching ──────────────────────────────────────────────────────────────
-
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(btn.dataset.tab).classList.add('active');
-
-    if (btn.dataset.tab === 'tab-jobs') {
-      startJobsRefresh();
-    } else {
-      stopJobsRefresh();
-    }
-  });
-});
-
-// ── Auth badge ─────────────────────────────────────────────────────────────────
+// ── Auth badge ──────────────────────────────────────────────────────────────────
 
 async function checkAuthBadge() {
   try {
-    const r = await fetch('/api/auth-status');
+    const r = await fetch(BASE + '/api/auth-status');
     const d = await r.json();
     const badge = document.getElementById('auth-badge');
     if (d.ok) {
@@ -400,11 +304,11 @@ async function checkAuthBadge() {
   }
 }
 
-// ── Settings tab ───────────────────────────────────────────────────────────────
+// ── API Credentials ─────────────────────────────────────────────────────────────
 
 async function loadSettings() {
   try {
-    const r = await fetch('/api/settings');
+    const r = await fetch(BASE + '/api/settings');
     const d = await r.json();
     document.getElementById('s-client-id').value = d.client_id || '';
     document.getElementById('s-client-secret').value = d.client_secret || '';
@@ -414,13 +318,12 @@ async function loadSettings() {
 
 async function saveSettings() {
   const btn = document.getElementById('save-settings-btn');
-  const alert = document.getElementById('settings-alert');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Saving…';
   hideAlert('settings-alert');
 
   try {
-    const r = await fetch('/api/settings', {
+    const r = await fetch(BASE + '/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -452,241 +355,81 @@ async function testConnection() {
   result.style.display = 'none';
 
   try {
-    const r = await fetch('/api/auth-status');
+    const r = await fetch(BASE + '/api/auth-status');
     const d = await r.json();
     result.style.display = 'flex';
     if (d.ok) {
-      result.innerHTML = `<span style="color:var(--green)">✔</span> Connected to tenant: <strong>${d.tenant}</strong>`;
+      result.innerHTML = `<span style="color:var(--green)">✔</span> Connected to tenant: <strong>${esc(d.tenant)}</strong>`;
       checkAuthBadge();
     } else {
-      result.innerHTML = `<span style="color:var(--red)">✗</span> ${d.error || 'Authentication failed'}`;
+      result.innerHTML = `<span style="color:var(--red)">✗</span> ${esc(d.error || 'Authentication failed')}`;
     }
   } catch (e) {
     result.style.display = 'flex';
-    result.innerHTML = `<span style="color:var(--red)">✗</span> Network error: ${e.message}`;
+    result.innerHTML = `<span style="color:var(--red)">✗</span> Network error: ${esc(e.message)}`;
   } finally {
     btn.disabled = false;
     btn.textContent = 'Test Connection';
   }
 }
 
-// ── Create Job tab ─────────────────────────────────────────────────────────────
+// ── Location Settings ───────────────────────────────────────────────────────────
 
-async function loadShells() {
-  const siteSelect = document.getElementById('c-site');
-  siteSelect.disabled = true;
-  siteSelect.innerHTML = '<option>Loading…</option>';
-  document.getElementById('shell-list-wrap').style.display = 'none';
-  selectedShell = null;
-  document.getElementById('create-job-btn').disabled = true;
-
+async function loadLocationSettings() {
   try {
-    const r = await fetch('/api/shells');
+    const r = await fetch(BASE + '/api/location-settings');
     const d = await r.json();
-    if (d.error) throw new Error(d.error);
-
-    allShells = d.shells || [];
-
-    // Build unique sites list
-    const sites = {};
-    allShells.forEach(s => { sites[s.site_id] = s.site_name; });
-
-    siteSelect.innerHTML = '<option value="">— Select a site —</option>';
-    Object.entries(sites)
-      .sort((a, b) => a[1].localeCompare(b[1]))
-      .forEach(([id, name]) => {
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = name;
-        siteSelect.appendChild(opt);
-      });
-
-    siteSelect.disabled = false;
-  } catch (e) {
-    siteSelect.innerHTML = '<option value="">Failed to load — check credentials</option>';
-    siteSelect.disabled = false;
-  }
-}
-
-function filterShells() {
-  const siteId = document.getElementById('c-site').value;
-  const wrap = document.getElementById('shell-list-wrap');
-  const list = document.getElementById('shell-list');
-  selectedShell = null;
-  document.getElementById('create-job-btn').disabled = true;
-  document.getElementById('model-warning').classList.remove('show');
-
-  if (!siteId) {
-    wrap.style.display = 'none';
-    return;
-  }
-
-  const filtered = allShells.filter(s => s.site_id === siteId);
-  if (!filtered.length) {
-    list.innerHTML = '<p style="font-size:13px; color:var(--text-muted); padding:8px 0">No available element shells at this site.</p>';
-    wrap.style.display = 'block';
-    return;
-  }
-
-  list.innerHTML = '';
-  filtered.forEach(shell => {
-    const item = document.createElement('div');
-    item.className = 'shell-item';
-    item.dataset.id = shell.id;
-    item.innerHTML = `
-      <div>
-        <div class="shell-name">${esc(shell.name)}</div>
-        <div class="shell-meta">${esc(shell.model) || 'Model unknown'} &middot; State: ${esc(shell.state) || 'unknown'}</div>
-      </div>
-      <div class="shell-site">${esc(shell.site_name)}</div>
-    `;
-    item.addEventListener('click', () => selectShell(shell, item));
-    list.appendChild(item);
-  });
-
-  wrap.style.display = 'block';
-}
-
-function selectShell(shell, el) {
-  document.querySelectorAll('.shell-item').forEach(i => i.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedShell = shell;
-  checkModelMatch();
-}
-
-function checkModelMatch() {
-  const serial = document.getElementById('c-serial').value.trim();
-  document.getElementById('create-job-btn').disabled = !serial || !selectedShell;
-}
-
-document.getElementById('c-serial').addEventListener('input', checkModelMatch);
-
-async function createJob() {
-  const serial = document.getElementById('c-serial').value.trim();
-  if (!serial || !selectedShell) return;
-
-  const btn = document.getElementById('create-job-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Creating…';
-  hideAlert('create-alert');
-
-  try {
-    const r = await fetch('/api/jobs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        serial_number: serial,
-        element_id: selectedShell.id,
-        element_name: selectedShell.name,
-        element_model: selectedShell.model,
-        site_id: selectedShell.site_id,
-        site_name: selectedShell.site_name,
-      }),
-    });
-    const d = await r.json();
-    if (d.ok) {
-      showAlert('create-alert', 'ok',
-        `✔ Job created for serial <strong>${esc(serial)}</strong> → ${esc(selectedShell.site_name)} / ${esc(selectedShell.name)}`);
-      document.getElementById('c-serial').value = '';
-      document.querySelectorAll('.shell-item').forEach(i => i.classList.remove('selected'));
-      selectedShell = null;
-      btn.disabled = true;
-    } else {
-      showAlert('create-alert', 'err', d.error || 'Failed to create job.');
-    }
-  } catch (e) {
-    showAlert('create-alert', 'err', 'Network error: ' + e.message);
-  } finally {
-    btn.disabled = !document.getElementById('c-serial').value.trim() || !selectedShell;
-    btn.textContent = 'Create Job';
-  }
-}
-
-// ── Jobs tab ───────────────────────────────────────────────────────────────────
-
-async function loadJobs() {
-  try {
-    const r = await fetch('/api/jobs');
-    const d = await r.json();
-    renderJobs(d.jobs || []);
-
-    const hasActive = (d.jobs || []).some(j =>
-      ['searching', 'waiting_online', 'assigning'].includes(j.status));
-
-    const dot = document.getElementById('live-dot');
-    const label = document.getElementById('refresh-label');
-    dot.className = 'refresh-dot' + (hasActive ? ' live' : '');
-    label.textContent = hasActive
-      ? 'Auto-refreshing every 10s (jobs in progress)'
-      : 'Last refreshed: ' + new Date().toLocaleTimeString();
-  } catch (e) {
-    document.getElementById('jobs-table-wrap').innerHTML =
-      `<div class="empty-state"><div class="icon">⚠️</div>Failed to load jobs: ${esc(e.message)}</div>`;
-  }
-}
-
-function renderJobs(jobs) {
-  const wrap = document.getElementById('jobs-table-wrap');
-  if (!jobs.length) {
-    wrap.innerHTML = `<div class="empty-state"><div class="icon">📋</div>No jobs yet. Create one in the "Create Job" tab.</div>`;
-    return;
-  }
-
-  const rows = jobs.map(j => `
-    <tr>
-      <td class="serial-cell">${esc(j.serial_number)}</td>
-      <td>${esc(j.machine_model || j.element_model || '—')}</td>
-      <td>${esc(j.site_name)}</td>
-      <td>${esc(j.element_name)}</td>
-      <td><span class="badge badge-${j.status}">${statusLabel(j.status)}</span></td>
-      <td class="msg-cell" title="${esc(j.message || '')}">${esc(j.message || '—')}</td>
-      <td class="time-cell">${fmtDate(j.created_at)}</td>
-      <td class="time-cell">${j.assigned_at ? fmtDate(j.assigned_at) : '—'}</td>
-      <td>
-        <button class="btn btn-danger-sm" onclick="deleteJob('${j.id}', '${esc(j.serial_number)}')">Delete</button>
-      </td>
-    </tr>
-  `).join('');
-
-  wrap.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>Serial</th>
-          <th>Model</th>
-          <th>Site</th>
-          <th>Shell</th>
-          <th>Status</th>
-          <th>Message</th>
-          <th>Created</th>
-          <th>Completed</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-  `;
-}
-
-async function deleteJob(id, serial) {
-  if (!confirm(`Delete job for serial "${serial}"?`)) return;
-  try {
-    await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
-    loadJobs();
+    document.getElementById('loc-radius').value = d.radius_km ?? 50;
+    document.getElementById('loc-use-test').checked = !!d.use_test_location;
+    document.getElementById('loc-lat').value = d.test_lat != null ? d.test_lat : '';
+    document.getElementById('loc-lon').value = d.test_lon != null ? d.test_lon : '';
+    document.getElementById('loc-test-ip').value = d.test_ip || '';
+    toggleLocOverrideFields();
   } catch { /* ignore */ }
 }
 
-function startJobsRefresh() {
-  loadJobs();
-  stopJobsRefresh();
-  jobsRefreshTimer = setInterval(loadJobs, 10000);
+function toggleLocOverrideFields() {
+  const on = document.getElementById('loc-use-test').checked;
+  document.getElementById('loc-override-fields').classList.toggle('hidden', !on);
 }
 
-function stopJobsRefresh() {
-  if (jobsRefreshTimer) { clearInterval(jobsRefreshTimer); jobsRefreshTimer = null; }
+async function saveLocationSettings() {
+  const btn = document.getElementById('save-loc-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+  hideAlert('loc-alert');
+
+  const latVal = document.getElementById('loc-lat').value.trim();
+  const lonVal = document.getElementById('loc-lon').value.trim();
+  const payload = {
+    radius_km: parseFloat(document.getElementById('loc-radius').value) || 50,
+    use_test_location: document.getElementById('loc-use-test').checked,
+    test_lat: latVal ? parseFloat(latVal) : null,
+    test_lon: lonVal ? parseFloat(lonVal) : null,
+    test_ip: document.getElementById('loc-test-ip').value.trim() || null,
+  };
+
+  try {
+    const r = await fetch(BASE + '/api/location-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showAlert('loc-alert', 'ok', '✔ Location settings saved.');
+    } else {
+      showAlert('loc-alert', 'err', d.error || 'Save failed.');
+    }
+  } catch (e) {
+    showAlert('loc-alert', 'err', 'Network error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Location Settings';
+  }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────────
 
 function showAlert(id, type, msg) {
   const el = document.getElementById(id);
@@ -698,39 +441,88 @@ function hideAlert(id) {
   el.className = 'alert';
   el.innerHTML = '';
 }
-
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function statusLabel(s) {
-  return {
-    pending: 'Pending',
-    searching: 'Searching',
-    waiting_online: 'Waiting Online',
-    assigning: 'Assigning',
-    assigned: 'Assigned ✓',
-    failed: 'Failed',
-    cancelled: 'Cancelled',
-  }[s] || s;
-}
+// ── Jobs Table ───────────────────────────────────────────────────────────────────
 
-function fmtDate(iso) {
-  if (!iso) return '—';
+const STATUS_LABELS = {
+  pending:'Pending', searching:'Searching', waiting_online:'Coming Online',
+  assigning:'Claiming', provisioning:'Provisioning', upgrading:'Upgrading',
+  fabric_check:'Network Check', assigned:'Installed', failed:'Failed',
+};
+
+let jobsAutoRefresh = null;
+
+async function loadJobs() {
   try {
-    return new Date(iso).toLocaleString(undefined, {
-      month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
-  } catch { return iso; }
+    const r = await fetch(BASE + '/api/jobs');
+    const d = await r.json();
+    renderJobsTable(d.jobs || []);
+  } catch (e) {
+    document.getElementById('jobs-table-wrap').innerHTML =
+      `<div style="color:var(--red);font-size:13px;padding:12px 0;">Error loading jobs: ${esc(e.message)}</div>`;
+  }
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────────
+function renderJobsTable(jobs) {
+  const wrap = document.getElementById('jobs-table-wrap');
+  if (jobs.length === 0) {
+    wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">No jobs yet.</div>';
+    return;
+  }
+  const rows = jobs.map(j => {
+    const badge = STATUS_LABELS[j.status] || j.status;
+    const cls = `status-badge s-${j.status}`;
+    const created = j.created_at ? new Date(j.created_at).toLocaleString() : '—';
+    return `<tr>
+      <td style="font-family:monospace;font-size:12px;">${esc(j.serial_number)}</td>
+      <td>${esc(j.site_name || '—')}</td>
+      <td>${esc(j.element_name || '—')}</td>
+      <td><span class="${cls}">${badge}</span></td>
+      <td style="font-size:12px;color:var(--text-muted);">${created}</td>
+      <td><button class="btn-del" onclick="deleteJob('${esc(j.id)}', this)">🗑 Delete</button></td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML = `<table class="jobs-table">
+    <thead><tr>
+      <th>Serial</th><th>Site</th><th>Shell</th><th>Status</th><th>Created</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+async function deleteJob(jobId, btn) {
+  if (!confirm('Delete this job? The field tech will need to start over.')) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const r = await fetch(BASE + `/api/jobs/${jobId}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (d.ok) {
+      showAlert('jobs-alert', 'ok', '✔ Job deleted.');
+      loadJobs();
+    } else {
+      showAlert('jobs-alert', 'err', d.error || 'Delete failed.');
+      btn.disabled = false;
+      btn.textContent = '🗑 Delete';
+    }
+  } catch (e) {
+    showAlert('jobs-alert', 'err', 'Network error.');
+    btn.disabled = false;
+    btn.textContent = '🗑 Delete';
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────────
 
 checkAuthBadge();
 loadSettings();
-loadShells();
+loadLocationSettings();
+loadJobs();
+setInterval(loadJobs, 15000);
 </script>
 </body>
 </html>
