@@ -1149,6 +1149,9 @@ def _poll_once():
                     _update_job(job["id"], status="failed",
                                 message=f"Device with serial '{job['serial_number']}' was not found in the controller after 30 minutes. Verify the serial number and that the device has internet access.",
                                 last_checked=now)
+                    _audit(job["id"], "Search timed out → failed",
+                           api="GET /sdwan/v2.0/api/machines/query", result="err",
+                           detail=f"serial={job['serial_number']} elapsed={elapsed_searching:.0f}s")
                     continue
 
                 machine = find_machine_by_serial(sdk, job["serial_number"])
@@ -1166,6 +1169,9 @@ def _poll_once():
                                 waiting_online_at=now,
                                 message="Device found — waiting for it to come online…",
                                 last_checked=now)
+                    _audit(job["id"], "Device found → waiting online",
+                           api="GET /sdwan/v2.0/api/machines/query", result="ok",
+                           detail=f"machine_id={machine['id']} state={machine_state}")
                 else:
                     _log.info(f"[{jid}] searching: no match yet for serial {job['serial_number']}")
                     _update_job(job["id"], message="Searching for device in the controller…", last_checked=now)
@@ -1182,6 +1188,9 @@ def _poll_once():
                     _update_job(job["id"], status="failed",
                                 message="Device was found but did not come online within 30 minutes. Check the device power, WAN connectivity, and that it can reach the Prisma SD-WAN controller.",
                                 last_checked=now)
+                    _audit(job["id"], "Waiting online timed out → failed",
+                           api="GET /sdwan/v2.0/api/machines/{id}", result="err",
+                           detail=f"machine_id={job.get('machine_id')} elapsed={elapsed_waiting:.0f}s")
                     continue
 
                 connected, existing_element_id = check_machine_connected(sdk, job["machine_id"])
@@ -1191,11 +1200,17 @@ def _poll_once():
                                 provisioning_at=now,
                                 message="Device already claimed — verifying provisioning…",
                                 last_checked=now)
+                    _audit(job["id"], "Device already claimed → provisioning",
+                           api="GET /sdwan/v2.0/api/machines/{id}", result="ok",
+                           detail=f"existing_element_id={existing_element_id}")
                 elif connected:
                     _log.info(f"[{jid}] waiting_online→assigning")
                     _update_job(job["id"], status="assigning", step=3,
                                 message="Device is online! Claiming and assigning to site…",
                                 last_checked=now)
+                    _audit(job["id"], "Device came online → assigning",
+                           api="GET /sdwan/v2.0/api/machines/{id}", result="ok",
+                           detail=f"machine_id={job.get('machine_id')} connected=True")
                 else:
                     _update_job(job["id"], message="Device found but not yet online — waiting…", last_checked=now)
 
@@ -1218,6 +1233,9 @@ def _poll_once():
                         )
                         _log.warning(f"[{jid}] {error_msg}")
                         _update_job(job["id"], status="failed", message=error_msg, last_checked=now)
+                        _audit(job["id"], "Model mismatch → failed",
+                               api="GET /sdwan/v2.0/api/elementshells/{id}", result="err",
+                               detail=f"machine={machine_model} shell={shell_model}")
                         continue
 
                 # element_shell_id is the shell's own ID required by machines_allocate_to_shell;
@@ -1230,9 +1248,15 @@ def _poll_once():
                                 provisioning_at=now,
                                 message="Device claimed! Waiting for site provisioning to complete…",
                                 last_checked=now)
+                    _audit(job["id"], "Device claimed → provisioning",
+                           api="POST /sdwan/v2.0/api/machines/{id}/allocate_to_shell", result="ok",
+                           detail=f"machine_id={job['machine_id']} shell_id={shell_id_to_claim}")
                 else:
                     _update_job(job["id"], status="failed",
                                 message=msg, last_checked=now)
+                    _audit(job["id"], "Claim failed → failed",
+                           api="POST /sdwan/v2.0/api/machines/{id}/allocate_to_shell", result="err",
+                           detail=msg)
 
             elif job["status"] == "provisioning":
                 provisioning_at = job.get("provisioning_at") or now
@@ -1246,6 +1270,9 @@ def _poll_once():
                     _update_job(job["id"], status="failed",
                                 message="Device did not complete provisioning within 15 minutes. Check the device status in the Prisma SD-WAN controller and try again.",
                                 last_checked=now)
+                    _audit(job["id"], "Provisioning timed out → failed",
+                           api="GET /sdwan/v2.0/api/machines/{id}", result="err",
+                           detail=f"elapsed={elapsed_provisioning:.0f}s")
                     continue
 
                 machine_id = job.get("machine_id")
@@ -1288,6 +1315,9 @@ def _poll_once():
                             )
                         _log.warning(f"[{jid}] {error_msg}")
                         _update_job(job["id"], status="failed", message=error_msg, last_checked=now)
+                        _audit(job["id"], "Hung allocation → failed",
+                               api="GET /sdwan/v2.0/api/machines/{id}", result="err",
+                               detail=error_msg[:200])
                         continue
 
                 provisioned, state = check_machine_provisioned(sdk, machine_id)
@@ -1303,6 +1333,9 @@ def _poll_once():
                                 message="Device provisioned — checking software version…",
                                 upgrading_at=now, machine_element_id=machine_elem_id,
                                 last_checked=now)
+                    _audit(job["id"], "Provisioning complete → upgrading",
+                           api="GET /sdwan/v2.0/api/machines/{id}", result="ok",
+                           detail=f"element_id={machine_elem_id}")
                 elif state == "unclaimed":
                     _update_job(job["id"],
                                 message="Waiting for controller to confirm device assignment…",
@@ -1379,12 +1412,18 @@ def _poll_once():
                                    version_check_at=now,
                                    upgrade_phase=3,
                                    message="Software upgrade complete — verifying running version…")
+                    _audit(job["id"], "Upgrade complete → version check",
+                           api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}/software",
+                           result="ok", detail=upgrade_msg[:200])
                 elif elapsed_upgrading > UPGRADE_TIMEOUT:
                     _log.info(f"[{jid}] upgrading→version_check (timed out after {elapsed_upgrading:.0f}s)")
                     updates.update(status="version_check", step=5,
                                    version_check_at=now,
                                    upgrade_phase=3,
                                    message="Software upgrade timed out — verifying version and device status…")
+                    _audit(job["id"], "Upgrade timed out → version check",
+                           api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}/software",
+                           result="err", detail=f"elapsed={elapsed_upgrading:.0f}s msg={upgrade_msg[:100]}")
                 elif elem_online:
                     # Device is already online but software/status still shows an incomplete
                     # state (commonly "pending" — scheduled but not yet downloading). An online
@@ -1400,6 +1439,9 @@ def _poll_once():
                                        version_check_at=now,
                                        upgrade_phase=3,
                                        message="Device online — verifying software version…")
+                        _audit(job["id"], "Device online, no active upgrade → version check",
+                               api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}/software",
+                               result="ok", detail=f"elapsed={elapsed_upgrading:.0f}s msg={upgrade_msg[:100]}")
                     elif actively:
                         msg = upgrade_msg or "Downloading and installing software update…"
                         phase = 2 if "rebooting" in msg.lower() else 1
@@ -1469,12 +1511,20 @@ def _poll_once():
                                    upgrade_phase=5,
                                    fabric_check_at=now,
                                    message=f"{ver_display} — checking SDWAN Fabric connectivity…")
+                    _audit(job["id"], "Version verified → fabric check",
+                           api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}",
+                           result="ok",
+                           detail=f"version={version} online={is_online} elapsed={elapsed_vc:.0f}s")
                 elif elapsed_vc > VERSION_CHECK_TIMEOUT:
                     _log.info(f"[{jid}] version_check→fabric_check (timed out)")
                     updates.update(status="fabric_check", step=6,
                                    upgrade_phase=5,
                                    fabric_check_at=now,
                                    message="Device online — checking SDWAN Fabric connectivity…")
+                    _audit(job["id"], "Version check timed out → fabric check",
+                           api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}",
+                           result="err",
+                           detail=f"elapsed={elapsed_vc:.0f}s version={version}")
                 else:
                     if not is_online:
                         if expected:
@@ -1512,12 +1562,18 @@ def _poll_once():
                                 message=f"Installation complete! {net_status['message']}",
                                 network_status=net_status,
                                 assigned_at=now, last_checked=now)
+                    _audit(job["id"], "Fabric check passed → assigned",
+                           api="GET /sdwan/v2.0/api/vpnlinks/query", result="ok",
+                           detail=net_status.get("message", "")[:200])
                 elif elapsed_fabric > FABRIC_TIMEOUT:
                     _log.info(f"[{jid}] fabric_check→assigned (timed out after {elapsed_fabric:.0f}s)")
                     _update_job(job["id"], status="assigned", step=6,
                                 message="Installation complete! Some tunnels are still initializing and will come up automatically — device is online and assigned.",
                                 network_status=net_status,
                                 assigned_at=now, last_checked=now)
+                    _audit(job["id"], "Fabric check timed out → assigned",
+                           api="GET /sdwan/v2.0/api/vpnlinks/query", result="err",
+                           detail=f"elapsed={elapsed_fabric:.0f}s tunnels={net_status.get('message','')[:100]}")
                 else:
                     elapsed_str = f"{int(elapsed_fabric)}s" if elapsed_fabric < 60 else f"{int(elapsed_fabric/60)}m {int(elapsed_fabric%60)}s"
                     _update_job(job["id"], message=f"{net_status['message']} ({elapsed_str} elapsed)",
@@ -1534,6 +1590,23 @@ def _update_job(job_id, **kwargs):
     with _jobs_lock:
         if job_id in _jobs:
             _jobs[job_id].update(kwargs)
+
+
+def _audit(job_id, action, actor="System", api="", result="ok", detail=""):
+    """Append a structured audit entry to the job's audit_log list."""
+    entry = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "actor": actor,
+        "action": action,
+        "api": api,
+        "result": result,
+        "detail": detail,
+    }
+    with _jobs_lock:
+        if job_id in _jobs:
+            if "audit_log" not in _jobs[job_id]:
+                _jobs[job_id]["audit_log"] = []
+            _jobs[job_id]["audit_log"].append(entry)
 
 
 def poller_loop():
@@ -1601,6 +1674,10 @@ def start_job(job_id):
         )
 
     save_jobs()
+    _audit(job_id, "Installation started", actor="Field Tech",
+           api=f"POST /api/jobs/{job_id}/start",
+           result="ok",
+           detail=f"serial={job.get('serial_number')} site={job.get('site_name')}")
     start_poller()
 
     with _jobs_lock:
@@ -1737,10 +1814,15 @@ def create_job():
         "machine_element_id": None,
         "network_status": None,
         "last_checked": None,
+        "audit_log": [],
     }
 
     with _jobs_lock:
         _jobs[job["id"]] = job
+    _audit(job["id"], "Job created", actor="Admin",
+           api="POST /api/jobs",
+           result="ok",
+           detail=f"serial={serial} site={site_name} shell={element_shell_id}")
     save_jobs()
     return jsonify({"ok": True, "job": job})
 

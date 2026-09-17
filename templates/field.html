@@ -820,9 +820,9 @@
 
     .ns-fabric-row {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 10px;
-      padding: 10px 16px;
+      padding: 12px 16px;
       border-top: 1px solid var(--border);
       font-size: 13px;
     }
@@ -831,6 +831,7 @@
       width: 10px; height: 10px;
       border-radius: 50%;
       flex-shrink: 0;
+      margin-top: 3px;
     }
     .ns-fabric-dot.up   { background: var(--green); }
     .ns-fabric-dot.down { background: var(--red); }
@@ -843,12 +844,46 @@
     .ns-fabric-status.down { color: var(--red); }
     .ns-fabric-status.none { color: var(--text-3); }
 
+    .ns-fabric-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
     .ns-fabric-count {
       font-size: 12px;
       color: var(--text-3);
       background: var(--bg);
       padding: 2px 8px;
       border-radius: 20px;
+    }
+
+    .ns-fabric-peers {
+      font-size: 11px;
+      color: var(--text-3);
+      text-align: right;
+    }
+    .ns-fabric-peers-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 4px;
+      text-align: right;
+    }
+    .ns-fabric-peer-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      justify-content: flex-end;
+      padding: 2px 0;
+      color: var(--text-2);
+      font-size: 12px;
+    }
+    .ns-fabric-peer-item::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
     }
 
     /* ── Status message & timer ── */
@@ -1583,9 +1618,10 @@ function openScanner() {
   html5QrCode = new Html5Qrcode('reader', { formatsToSupport: formats });
   html5QrCode.start(
     { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 280, height: 100 } },
+    { fps: 15, qrbox: { width: 320, height: 130 }, aspectRatio: 1.777 },
     (decodedText) => {
-      if (!SERIAL_PATTERN.test(decodedText.trim())) return; // ignore non-serial barcodes
+      const raw = decodedText.trim();
+      if (!SERIAL_PATTERN.test(raw)) return;
       html5QrCode.pause(true);
       _pendingScan = decodedText.trim();
       document.getElementById('scan-preview').textContent = _pendingScan;
@@ -2384,23 +2420,31 @@ function buildNetRows(ns) {
       const statusCls = none ? 'none' : row.connected ? 'up' : 'down';
       const statusTxt = none ? 'Not configured'
                       : row.connected ? 'Connected' : 'Not connected';
-      let countTxt = '';
-      if (!none && row.count > 0) {
-        const peers = row.peers && row.peers.length > 0 ? row.peers : null;
-        if (peers) {
-          const MAX_SHOW = 3;
-          const shown = peers.slice(0, MAX_SHOW).join(', ');
-          const extra = peers.length > MAX_SHOW ? ` +${peers.length - MAX_SHOW} more` : '';
-          countTxt = `<span class="ns-fabric-count">${shown}${extra}</span>`;
-        } else {
-          countTxt = `<span class="ns-fabric-count">${row.up}/${row.count} tunnel${row.count !== 1 ? 's' : ''}</span>`;
+      const peers = row.peers && row.peers.length > 0 ? row.peers : null;
+      if (peers && row.connected) {
+        const MAX_SHOW = 5;
+        const shown = peers.slice(0, MAX_SHOW);
+        const extra = peers.length > MAX_SHOW ? peers.length - MAX_SHOW : 0;
+        const peerRows = shown.map(p => `<div class="ns-fabric-peer-item">${p}</div>`).join('');
+        const moreRow = extra ? `<div class="ns-fabric-peer-item" style="color:var(--text-3)">+${extra} more</div>` : '';
+        html += `<div class="ns-fabric-row">
+          <span class="ns-fabric-dot ${dotCls}"></span>
+          <span class="ns-fabric-name" style="font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-3)">Sites Connected To</span>
+          <div class="ns-fabric-right">
+            <div class="ns-fabric-peers">${peerRows}${moreRow}</div>
+          </div>
+        </div>`;
+      } else {
+        let rightHtml = `<span class="ns-fabric-status ${statusCls}">${statusTxt}</span>`;
+        if (!none && row.count > 0) {
+          rightHtml += `<span class="ns-fabric-count">${row.up}/${row.count} tunnel${row.count !== 1 ? 's' : ''}</span>`;
         }
+        html += `<div class="ns-fabric-row">
+          <span class="ns-fabric-dot ${dotCls}"></span>
+          <span class="ns-fabric-name">${row.name}</span>
+          <div class="ns-fabric-right">${rightHtml}</div>
+        </div>`;
       }
-      html += `<div class="ns-fabric-row">
-        <span class="ns-fabric-dot ${dotCls}"></span>
-        <span class="ns-fabric-name">${row.name}</span>
-        <span class="ns-fabric-status ${statusCls}">${statusTxt}</span>${countTxt}
-      </div>`;
     }
   }
 

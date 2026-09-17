@@ -116,7 +116,7 @@ header {
 
 /* ── Layout ── */
 main {
-  max-width: 660px;
+  max-width: 780px;
   margin: 0 auto;
   padding: 32px 20px 48px;
 }
@@ -516,6 +516,109 @@ input::placeholder { color: var(--text-3); }
   background: var(--border);
   margin: 20px 0;
 }
+
+/* ── Audit drawer ── */
+.audit-drawer {
+  border-top: 1px solid var(--border);
+  background: #f8fafc;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.3s ease;
+}
+
+.audit-drawer.open {
+  max-height: 700px;
+}
+
+.audit-panel {
+  padding: 12px 14px;
+}
+
+.audit-panel-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.audit-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-3);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--text);
+}
+
+.audit-table tr:last-child td { border-bottom: none; }
+
+.audit-ts {
+  white-space: nowrap;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+
+.audit-actor { font-weight: 600; white-space: nowrap; }
+
+.audit-api {
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--blue);
+  word-break: break-all;
+}
+
+.audit-ok  { color: var(--green); font-weight: 600; }
+.audit-err { color: var(--red);   font-weight: 600; }
+
+.audit-detail { color: var(--text-2); word-break: break-word; max-width: 180px; }
+
+.btn-audit {
+  background: transparent;
+  border: 1.5px solid var(--border-2);
+  color: var(--text-2);
+  border-radius: 7px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-audit:hover {
+  background: var(--blue-bg);
+  border-color: var(--blue-pale);
+  color: var(--blue);
+}
+
+.no-audit {
+  color: var(--text-3);
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px 0;
+}
 </style>
 </head>
 <body>
@@ -653,9 +756,9 @@ input::placeholder { color: var(--text-3); }
         Refresh
       </button>
     </div>
-    <p class="card-desc" style="margin-top:4px">All installation jobs. Delete a stuck or duplicate job to unblock a field technician.</p>
+    <p class="card-desc" style="margin-top:4px">Jobs currently in progress (any status except Installed). Delete a stuck or duplicate job to unblock a field technician.</p>
 
-    <div id="jobs-table-wrap">
+    <div id="active-jobs-wrap">
       <div class="table-empty">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
@@ -664,7 +767,32 @@ input::placeholder { color: var(--text-3); }
         Loading jobs…
       </div>
     </div>
-    <div id="jobs-alert" class="alert"></div>
+    <div id="active-jobs-alert" class="alert"></div>
+  </div>
+
+  <!-- Finished Jobs -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon green">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="#16a34a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M22 4L12 14.01l-3-3" stroke="#16a34a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>Finished Jobs</h2>
+    </div>
+    <p class="card-desc">Completed installations. Expand any row to view the full audit trail — all actors, timestamps, and API calls logged during installation.</p>
+
+    <div id="finished-jobs-wrap">
+      <div class="table-empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        Loading jobs…
+      </div>
+    </div>
+    <div id="finished-jobs-alert" class="alert"></div>
   </div>
 
 </main>
@@ -841,47 +969,62 @@ function esc(s) {
 const STATUS_LABELS = {
   pending:'Pending', searching:'Searching', waiting_online:'Coming Online',
   assigning:'Claiming', provisioning:'Provisioning', upgrading:'Upgrading',
-  fabric_check:'Network Check', assigned:'Installed', failed:'Failed',
+  version_check:'Verifying', fabric_check:'Network Check', assigned:'Installed', failed:'Failed',
 };
-
-let jobsAutoRefresh = null;
 
 async function loadJobs() {
   try {
     const r = await fetch(BASE + '/api/jobs');
     const d = await r.json();
-    renderJobsTable(d.jobs || []);
+    const all = d.jobs || [];
+    const active   = all.filter(j => j.status !== 'assigned');
+    const finished = all.filter(j => j.status === 'assigned');
+    renderJobsSection('active-jobs-wrap',   'active-jobs-alert',   active,   'No active jobs');
+    renderJobsSection('finished-jobs-wrap', 'finished-jobs-alert', finished, 'No finished jobs yet');
   } catch (e) {
-    document.getElementById('jobs-table-wrap').innerHTML =
+    document.getElementById('active-jobs-wrap').innerHTML =
       `<div style="color:var(--red);font-size:13px;padding:12px 0;">Error loading jobs: ${esc(e.message)}</div>`;
   }
 }
 
-function renderJobsTable(jobs) {
-  const wrap = document.getElementById('jobs-table-wrap');
+function renderJobsSection(wrapId, alertId, jobs, emptyLabel) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
   if (jobs.length === 0) {
     wrap.innerHTML = `<div class="table-empty">
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
         <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      No active jobs
+      ${emptyLabel}
     </div>`;
     return;
   }
   const rows = jobs.map(j => {
-    const badge = STATUS_LABELS[j.status] || j.status;
-    const cls = `status-badge s-${j.status}`;
+    const badge   = STATUS_LABELS[j.status] || j.status;
+    const cls     = `status-badge s-${j.status}`;
     const created = j.created_at ? new Date(j.created_at).toLocaleString() : '—';
+    const jidSafe = esc(j.id);
+    const auditHtml = buildAuditTable(j.audit_log);
     return `<tr>
       <td class="col-serial">${esc(j.serial_number)}</td>
       <td>${esc(j.site_name || '—')}</td>
       <td>${esc(j.element_name || '—')}</td>
       <td><span class="${cls}">${badge}</span></td>
       <td class="col-date">${created}</td>
-      <td><button class="btn-del" onclick="deleteJob('${esc(j.id)}', this)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Delete
-      </button></td>
+      <td style="white-space:nowrap">
+        <button class="btn-audit" id="audit-btn-${jidSafe}" onclick="toggleAudit('${jidSafe}', this)">▼ Audit Log</button>
+        <button class="btn-del" style="margin-left:6px" onclick="deleteJob('${jidSafe}', this, '${alertId}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Delete
+        </button>
+      </td>
+    </tr>
+    <tr class="audit-row">
+      <td colspan="6" style="padding:0;border-bottom:1px solid var(--border)">
+        <div class="audit-drawer" id="audit-${jidSafe}">
+          <div class="audit-panel">${auditHtml}</div>
+        </div>
+      </td>
     </tr>`;
   }).join('');
   wrap.innerHTML = `<table class="jobs-table">
@@ -892,7 +1035,41 @@ function renderJobsTable(jobs) {
   </table>`;
 }
 
-async function deleteJob(jobId, btn) {
+function buildAuditTable(log) {
+  if (!log || log.length === 0) {
+    return '<div class="no-audit">No audit entries recorded for this job.</div>';
+  }
+  const rows = log.map(e => {
+    const ts      = e.ts ? new Date(e.ts).toLocaleString() : '—';
+    const resCls  = (e.result === 'ok') ? 'audit-ok' : (e.result === 'err' ? 'audit-err' : '');
+    const resText = e.result || '—';
+    return `<tr>
+      <td class="audit-ts">${esc(ts)}</td>
+      <td class="audit-actor">${esc(e.actor || '—')}</td>
+      <td class="audit-action">${esc(e.action || '—')}</td>
+      <td class="audit-api">${esc(e.api || '—')}</td>
+      <td class="${resCls}">${esc(resText)}</td>
+      <td class="audit-detail">${esc(e.detail || '')}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="audit-panel-title">&#128196; Audit Trail — ${log.length} entr${log.length === 1 ? 'y' : 'ies'}</div>
+    <table class="audit-table">
+      <thead><tr>
+        <th>Timestamp</th><th>Actor</th><th>Action</th><th>API</th><th>Result</th><th>Detail</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function toggleAudit(jobId, btn) {
+  const drawer = document.getElementById('audit-' + jobId);
+  if (!drawer) return;
+  const open = drawer.classList.toggle('open');
+  btn.textContent = open ? '▲ Hide Log' : '▼ Audit Log';
+}
+
+async function deleteJob(jobId, btn, alertId) {
+  alertId = alertId || 'active-jobs-alert';
   if (!confirm('Delete this job? The field tech will need to start over.')) return;
   btn.disabled = true;
   btn.textContent = '…';
@@ -900,15 +1077,15 @@ async function deleteJob(jobId, btn) {
     const r = await fetch(BASE + `/api/jobs/${jobId}`, { method: 'DELETE' });
     const d = await r.json();
     if (d.ok) {
-      showAlert('jobs-alert', 'ok', '✔ Job deleted.');
+      showAlert(alertId, 'ok', '✔ Job deleted.');
       loadJobs();
     } else {
-      showAlert('jobs-alert', 'err', d.error || 'Delete failed.');
+      showAlert(alertId, 'err', d.error || 'Delete failed.');
       btn.disabled = false;
       btn.textContent = 'Delete';
     }
   } catch (e) {
-    showAlert('jobs-alert', 'err', 'Network error.');
+    showAlert(alertId, 'err', 'Network error.');
     btn.disabled = false;
     btn.textContent = 'Delete';
   }
