@@ -5,159 +5,531 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ION Installer — Admin Settings</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --dark-blue: #003057;
-    --blue: #0070d2;
-    --green: #107c10;
-    --red: #d13438;
-    --gray-bg: #f0f2f5;
-    --border: #d1d1d1;
-    --text: #1a1a1a;
-    --text-muted: #666;
-  }
+:root {
+  --bg:         #f1f5f9;
+  --surface:    #ffffff;
+  --border:     #e2e8f0;
+  --border-2:   #cbd5e1;
+  --text:       #0f172a;
+  --text-2:     #475569;
+  --text-3:     #94a3b8;
+  --blue:       #0070d2;
+  --blue-h:     #005ab5;
+  --blue-bg:    #eff6ff;
+  --blue-pale:  #dbeafe;
+  --dark:       #002748;
+  --green:      #16a34a;
+  --green-bg:   #f0fdf4;
+  --green-pale: #bbf7d0;
+  --red:        #dc2626;
+  --red-bg:     #fef2f2;
+  --red-pale:   #fecaca;
+  --orange:     #ea580c;
+  --orange-bg:  #fff7ed;
+  --amber:      #d97706;
+  --shadow:     0 1px 3px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.05);
+  --radius:     14px;
+  --radius-sm:  10px;
+}
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--gray-bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
 
-  header {
-    background: var(--dark-blue);
-    color: #fff;
-    padding: 0 24px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .header-brand { display: flex; align-items: center; gap: 12px; }
-  .header-brand .logo {
-    width: 32px; height: 32px; background: var(--blue);
-    border-radius: 6px; display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
-  }
-  .header-brand h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.2px; }
-  .header-brand span { font-size: 12px; opacity: 0.6; }
+/* ── Header ── */
+header {
+  background: linear-gradient(160deg, #002748 0%, #003d74 100%);
+  color: #fff;
+  padding: 0 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
 
-  #auth-badge {
-    font-size: 12px; padding: 4px 10px; border-radius: 12px;
-    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
-  }
-  #auth-badge.ok  { background: rgba(16,124,16,0.3);  border-color: #107c10; }
-  #auth-badge.err { background: rgba(209,52,56,0.3);  border-color: #d13438; }
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-  main { max-width: 640px; margin: 0 auto; padding: 32px 24px; }
+.header-logo {
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 
-  .card {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-    margin-bottom: 24px;
-  }
-  .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-  .card .card-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+.header-logo svg { opacity: 0.95; }
 
-  .form-group { margin-bottom: 16px; }
-  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
-  input[type="text"], input[type="password"] {
-    width: 100%; padding: 9px 12px;
-    border: 1px solid var(--border); border-radius: 6px;
-    font-size: 14px; color: var(--text);
-    transition: border-color 0.15s;
-  }
-  input:focus {
-    outline: none; border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(0,112,210,0.1);
-  }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.header-text h1 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  line-height: 1.2;
+}
 
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 9px 18px; border: none; border-radius: 6px;
-    font-size: 14px; font-weight: 500; cursor: pointer;
-    transition: opacity 0.15s, background 0.15s;
-  }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-primary { background: var(--blue); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #005ab3; }
-  .btn-outline {
-    background: transparent; color: var(--blue);
-    border: 1px solid var(--blue);
-  }
-  .btn-outline:hover:not(:disabled) { background: rgba(0,112,210,0.06); }
-  .btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.header-text span {
+  font-size: 11px;
+  opacity: 0.55;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+}
 
-  .alert {
-    padding: 10px 14px; border-radius: 6px;
-    font-size: 13px; margin-top: 12px; display: none;
-  }
-  .alert.show { display: block; }
-  .alert-ok  { background: #dff6dd; color: #107c10; border: 1px solid #9fd89b; }
-  .alert-err { background: #fde7e9; color: #a4262c; border: 1px solid #f1a6a9; }
+#auth-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.20);
+  letter-spacing: 0.2px;
+  transition: background 0.2s, border-color 0.2s;
+}
 
-  #conn-result {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 13px; margin-top: 12px;
-  }
+#auth-badge.ok {
+  background: rgba(22,163,74,0.25);
+  border-color: rgba(134,239,172,0.5);
+  color: #86efac;
+}
 
-  /* ── Toggle switch ── */
-  .toggle-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 0; border-bottom: 1px solid #f0f0f0; margin-bottom: 12px;
-  }
-  .toggle-label { font-size: 13px; font-weight: 500; }
-  .toggle-desc  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-  .toggle {
-    position: relative; display: inline-block;
-    width: 42px; height: 24px; flex-shrink: 0; margin-left: 16px;
-  }
-  .toggle input { opacity: 0; width: 0; height: 0; }
-  .toggle-slider {
-    position: absolute; cursor: pointer;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: #ccc; border-radius: 24px;
-    transition: background 0.2s;
-  }
-  .toggle-slider::before {
-    content: ''; position: absolute;
-    width: 18px; height: 18px; border-radius: 50%;
-    left: 3px; bottom: 3px; background: #fff;
-    transition: transform 0.2s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  }
-  .toggle input:checked + .toggle-slider { background: var(--blue); }
-  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+#auth-badge.err {
+  background: rgba(220,38,38,0.25);
+  border-color: rgba(252,165,165,0.5);
+  color: #fca5a5;
+}
 
-  .loc-override {
-    overflow: hidden; max-height: 300px; opacity: 1;
-    transition: max-height 0.25s ease, opacity 0.2s;
-  }
-  .loc-override.hidden { max-height: 0; opacity: 0; pointer-events: none; }
+/* ── Layout ── */
+main {
+  max-width: 660px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
 
-  .spinner {
-    display: inline-block; width: 16px; height: 16px;
-    border: 2px solid rgba(255,255,255,0.4);
-    border-top-color: #fff; border-radius: 50%;
-    animation: spin 0.7s linear infinite; vertical-align: middle;
-  }
-  .spinner-blue { border-color: rgba(0,112,210,0.3); border-top-color: var(--blue); }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* ── Card ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.card-icon.blue { background: var(--blue-bg); }
+.card-icon.green { background: var(--green-bg); }
+.card-icon.orange { background: var(--orange-bg); }
+
+.card h2 {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+  color: var(--text);
+}
+
+.card-desc {
+  font-size: 12.5px;
+  color: var(--text-2);
+  margin-bottom: 20px;
+  margin-left: 42px;
+  line-height: 1.55;
+}
+
+/* ── Forms ── */
+.form-group { margin-bottom: 14px; }
+
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  color: var(--text);
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0,112,210,0.12);
+}
+
+input::placeholder { color: var(--text-3); }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  font-family: inherit;
+  letter-spacing: -0.1px;
+  white-space: nowrap;
+}
+
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-primary {
+  background: linear-gradient(160deg, #0080e8 0%, #0060bc 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,112,210,0.30);
+}
+
+.btn-primary:hover:not(:disabled) { opacity: 0.88; }
+
+.btn-outline {
+  background: var(--surface);
+  color: var(--blue);
+  border: 1.5px solid var(--border-2);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--blue-bg);
+  border-color: var(--blue-pale);
+}
+
+.btn-sm {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+/* ── Alert ── */
+.alert {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 14px;
+  display: none;
+  line-height: 1.5;
+}
+
+.alert.show { display: block; }
+
+.alert-ok {
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid var(--green-pale);
+}
+
+.alert-err {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid var(--red-pale);
+}
+
+/* ── Conn result ── */
+#conn-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 14px;
+  font-weight: 500;
+}
+
+/* ── Toggle switch ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+
+.toggle-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.toggle-desc {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.toggle input { opacity: 0; width: 0; height: 0; }
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--border-2);
+  border-radius: 26px;
+  transition: background 0.2s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+.toggle input:checked + .toggle-slider { background: var(--blue); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+.loc-override {
+  overflow: hidden;
+  max-height: 300px;
+  opacity: 1;
+  transition: max-height 0.25s ease, opacity 0.2s;
+}
+
+.loc-override.hidden { max-height: 0; opacity: 0; pointer-events: none; }
+
+.field-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+/* ── Jobs table ── */
+.jobs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.jobs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.jobs-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 8px 10px;
+  border-bottom: 1.5px solid var(--border);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.jobs-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  word-break: break-word;
+  color: var(--text);
+}
+
+.jobs-table tr:last-child td { border-bottom: none; }
+
+.jobs-table tbody tr:hover td { background: var(--bg); }
+
+/* Serial number monospace */
+.jobs-table .col-serial {
+  font-family: 'SF Mono', 'Cascadia Code', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.jobs-table .col-date {
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* ── Status badges ── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.status-badge::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.s-pending        { background: #f1f5f9; color: #64748b; }
+.s-searching      { background: #dbeafe; color: #1d4ed8; }
+.s-waiting_online { background: #fef3c7; color: #92400e; }
+.s-assigning      { background: #d1fae5; color: #065f46; }
+.s-provisioning   { background: #ede9fe; color: #5b21b6; }
+.s-upgrading      { background: #e0f2fe; color: #0c4a6e; }
+.s-fabric_check   { background: #cffafe; color: #155e75; }
+.s-assigned       { background: var(--green-pale); color: #064e3b; }
+.s-failed         { background: var(--red-pale);   color: #7f1d1d; }
+
+/* ── Delete button ── */
+.btn-del {
+  background: transparent;
+  border: 1.5px solid var(--border-2);
+  color: var(--text-2);
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-del:hover {
+  background: var(--red-bg);
+  border-color: var(--red-pale);
+  color: var(--red);
+}
+
+/* ── Empty / loading states ── */
+.table-empty {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.table-empty svg {
+  display: block;
+  margin: 0 auto 10px;
+  opacity: 0.4;
+}
+
+/* ── Spinner ── */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+.spinner-blue {
+  border-color: rgba(0,112,210,0.2);
+  border-top-color: var(--blue);
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Section divider ── */
+.section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0;
+}
 </style>
 </head>
 <body>
 
 <header>
   <div class="header-brand">
-    <div class="logo">⚙</div>
-    <div>
+    <div class="header-logo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M2 17l10 5 10-5" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" stroke-opacity="0.7"/>
+        <path d="M2 12l10 5 10-5" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" stroke-opacity="0.5"/>
+      </svg>
+    </div>
+    <div class="header-text">
       <h1>ION Installer Admin</h1>
       <span>Prisma SD-WAN Field Deployment</span>
     </div>
@@ -169,7 +541,14 @@
 
   <!-- API Credentials -->
   <div class="card">
-    <h2>API Credentials</h2>
+    <div class="card-header">
+      <div class="card-icon blue">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" stroke="#0070d2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>API Credentials</h2>
+    </div>
     <p class="card-desc">Service account credentials for the Prisma SASE tenant. Changes take effect immediately — the SDK re-authenticates on the next request.</p>
 
     <div class="form-row">
@@ -184,12 +563,17 @@
     </div>
     <div class="form-group">
       <label for="s-client-secret">Client Secret</label>
-      <input type="password" id="s-client-secret" placeholder="Enter client secret">
+      <input type="password" id="s-client-secret" placeholder="••••••••••••••••">
     </div>
 
     <div class="btn-row">
       <button class="btn btn-primary" id="save-settings-btn" onclick="saveSettings()">Save Credentials</button>
-      <button class="btn btn-outline" id="test-conn-btn" onclick="testConnection()">Test Connection</button>
+      <button class="btn btn-outline" id="test-conn-btn" onclick="testConnection()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Test Connection
+      </button>
     </div>
 
     <div id="settings-alert" class="alert"></div>
@@ -198,13 +582,21 @@
 
   <!-- Location Testing -->
   <div class="card">
-    <h2>📍 Location Testing</h2>
-    <p class="card-desc">In a lab, devices have private IPs that cannot be geolocated. Use these knobs to override the location for testing. In production, leave all overrides off.</p>
+    <div class="card-header">
+      <div class="card-icon green">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="#16a34a" stroke-width="1.8" stroke-linejoin="round"/>
+          <circle cx="12" cy="10" r="3" stroke="#16a34a" stroke-width="1.8"/>
+        </svg>
+      </div>
+      <h2>Location Testing</h2>
+    </div>
+    <p class="card-desc">In a lab, devices have private IPs that cannot be geolocated. Use these settings to override the location for testing. In production, leave all overrides off.</p>
 
     <div class="form-group">
       <label for="loc-radius">Search Radius (km)</label>
-      <input type="text" id="loc-radius" placeholder="50" style="max-width:140px">
-      <div style="font-size:12px; color:var(--text-muted); margin-top:4px">Sites within this distance from the device IP location are shown as candidates.</div>
+      <input type="text" id="loc-radius" placeholder="50" style="max-width:160px">
+      <div class="field-hint">Sites within this distance from the device IP location are shown as candidates.</div>
     </div>
 
     <div class="toggle-row">
@@ -230,7 +622,7 @@
         </div>
       </div>
       <div class="form-group">
-        <label for="loc-test-ip">Test IP Address <span style="font-weight:400; color:var(--text-muted)">(optional)</span></label>
+        <label for="loc-test-ip">Test IP Address <span style="font-weight:400; text-transform:none; color:var(--text-3)">(optional)</span></label>
         <input type="text" id="loc-test-ip" placeholder="e.g. 8.8.8.8 — overrides device WAN IP before geolocation">
       </div>
     </div>
@@ -243,41 +635,39 @@
 
   <!-- Active Jobs -->
   <div class="card">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-      <h2>🔧 Active Jobs</h2>
-      <button class="btn btn-outline" onclick="loadJobs()" style="padding:5px 12px; font-size:12px;">↻ Refresh</button>
+    <div class="jobs-header">
+      <div class="card-header" style="margin-bottom:0">
+        <div class="card-icon orange">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="3" width="20" height="14" rx="2" stroke="#ea580c" stroke-width="1.8"/>
+            <path d="M8 21h8M12 17v4" stroke="#ea580c" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h2>Active Jobs</h2>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="loadJobs()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Refresh
+      </button>
     </div>
-    <p class="card-desc">All installation jobs. Delete a stuck or duplicate job to unblock a field tech.</p>
+    <p class="card-desc" style="margin-top:4px">All installation jobs. Delete a stuck or duplicate job to unblock a field technician.</p>
 
     <div id="jobs-table-wrap">
-      <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:13px;">Loading jobs…</div>
+      <div class="table-empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        Loading jobs…
+      </div>
     </div>
     <div id="jobs-alert" class="alert"></div>
   </div>
 
 </main>
-
-<style>
-  .jobs-table { width:100%; border-collapse:collapse; font-size:13px; }
-  .jobs-table th { text-align:left; font-weight:600; padding:8px 10px; border-bottom:2px solid var(--border); color:var(--text-muted); font-size:12px; text-transform:uppercase; letter-spacing:0.3px; }
-  .jobs-table td { padding:9px 10px; border-bottom:1px solid #f0f0f0; vertical-align:middle; word-break:break-word; }
-  .jobs-table tr:last-child td { border-bottom:none; }
-  .status-badge {
-    display:inline-block; padding:2px 8px; border-radius:10px;
-    font-size:11px; font-weight:600; white-space:nowrap;
-  }
-  .s-pending       { background:#e5e5e5; color:#444; }
-  .s-searching     { background:#dbeafe; color:#1d4ed8; }
-  .s-waiting_online{ background:#fef3c7; color:#92400e; }
-  .s-assigning     { background:#d1fae5; color:#065f46; }
-  .s-provisioning  { background:#ede9fe; color:#5b21b6; }
-  .s-upgrading     { background:#e0f2fe; color:#0c4a6e; }
-  .s-fabric_check  { background:#cffafe; color:#155e75; }
-  .s-assigned      { background:#d1fae5; color:#065f46; }
-  .s-failed        { background:#fee2e2; color:#991b1b; }
-  .btn-del { background:transparent; border:1px solid var(--red); color:var(--red); border-radius:5px; padding:4px 10px; font-size:12px; cursor:pointer; white-space:nowrap; }
-  .btn-del:hover { background:var(--red); color:#fff; }
-</style>
 
 <script>
 const BASE = (() => {
@@ -470,7 +860,12 @@ async function loadJobs() {
 function renderJobsTable(jobs) {
   const wrap = document.getElementById('jobs-table-wrap');
   if (jobs.length === 0) {
-    wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">No jobs yet.</div>';
+    wrap.innerHTML = `<div class="table-empty">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      No active jobs
+    </div>`;
     return;
   }
   const rows = jobs.map(j => {
@@ -478,12 +873,15 @@ function renderJobsTable(jobs) {
     const cls = `status-badge s-${j.status}`;
     const created = j.created_at ? new Date(j.created_at).toLocaleString() : '—';
     return `<tr>
-      <td style="font-family:monospace;font-size:12px;">${esc(j.serial_number)}</td>
+      <td class="col-serial">${esc(j.serial_number)}</td>
       <td>${esc(j.site_name || '—')}</td>
       <td>${esc(j.element_name || '—')}</td>
       <td><span class="${cls}">${badge}</span></td>
-      <td style="font-size:12px;color:var(--text-muted);">${created}</td>
-      <td><button class="btn-del" onclick="deleteJob('${esc(j.id)}', this)">🗑 Delete</button></td>
+      <td class="col-date">${created}</td>
+      <td><button class="btn-del" onclick="deleteJob('${esc(j.id)}', this)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Delete
+      </button></td>
     </tr>`;
   }).join('');
   wrap.innerHTML = `<table class="jobs-table">
@@ -507,12 +905,12 @@ async function deleteJob(jobId, btn) {
     } else {
       showAlert('jobs-alert', 'err', d.error || 'Delete failed.');
       btn.disabled = false;
-      btn.textContent = '🗑 Delete';
+      btn.textContent = 'Delete';
     }
   } catch (e) {
     showAlert('jobs-alert', 'err', 'Network error.');
     btn.disabled = false;
-    btn.textContent = '🗑 Delete';
+    btn.textContent = 'Delete';
   }
 }
 

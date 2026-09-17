@@ -4,148 +4,196 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ION Field Installer</title>
+  <script>window.__BUILD_TS__ = "{{ build_ts }}";</script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --border-2: #cbd5e1;
+      --text: #0f172a;
+      --text-2: #475569;
+      --text-3: #94a3b8;
       --blue: #0070d2;
-      --dark-blue: #003057;
-      --green: #107c10;
-      --red: #d13438;
-      --orange: #d97706;
+      --blue-h: #005ab5;
+      --blue-bg: #eff6ff;
+      --blue-pale: #dbeafe;
+      --dark: #002748;
+      --dark-h: #003a6e;
+      --green: #16a34a;
+      --green-h: #15803d;
+      --green-bg: #f0fdf4;
+      --green-pale: #bbf7d0;
+      --red: #dc2626;
+      --red-bg: #fef2f2;
+      --red-pale: #fecaca;
+      --orange: #ea580c;
+      --orange-bg: #fff7ed;
+      --orange-pale: #fed7aa;
       --teal: #0d9488;
-      --gray-bg: #f0f2f5;
-      --gray-border: #e1e4e8;
-      --gray-text: #6b7280;
-      --dark: #111827;
-      --card-bg: #ffffff;
-      --radius: 12px;
-      --shadow: 0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+      --teal-bg: #f0fdfa;
+      --teal-pale: #99f6e4;
+      --amber: #d97706;
+      --amber-bg: #fefce8;
+      --purple: #7c3aed;
+      --purple-bg: #ede9fe;
+      --purple-pale: #c4b5fd;
+      --shadow-sm: 0 1px 2px rgba(15,23,42,.04);
+      --shadow: 0 1px 3px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.05);
+      --shadow-md: 0 4px 6px rgba(15,23,42,.07), 0 10px 30px rgba(15,23,42,.08);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 6px;
     }
 
-    html, body {
-      height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--gray-bg);
-      color: var(--dark);
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Layout ── */
+    /* ── App shell ── */
     .app-shell {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
       max-width: 480px;
       margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
+    /* ── Header ── */
     header {
-      background: var(--dark-blue);
+      background: linear-gradient(160deg, #002748 0%, #003d74 100%);
       color: #fff;
-      padding: 16px 20px;
+      padding: 0 20px;
+      height: 60px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.06), 0 2px 12px rgba(0,0,0,0.25);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 12px; }
+
+    .logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #0080e8 0%, #0055b3 100%);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,112,210,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
       flex-shrink: 0;
     }
 
-    header .logo {
-      width: 32px;
-      height: 32px;
-      background: #00c4b4;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      font-weight: 700;
-      color: #fff;
-      flex-shrink: 0;
+    header h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+    header p  { font-size: 11px; opacity: 0.55; margin-top: 1px; font-weight: 400; }
+
+    .admin-link {
+      font-size: 12px; color: rgba(255,255,255,0.6);
+      text-decoration: none; padding: 5px 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      transition: all 0.15s;
+      white-space: nowrap;
     }
+    .admin-link:hover { color: #fff; border-color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.08); }
 
-    header h1 {
-      font-size: 17px;
-      font-weight: 600;
-      line-height: 1.2;
-    }
-
-    header p {
-      font-size: 12px;
-      opacity: 0.65;
-      margin-top: 1px;
-    }
-
-    header .admin-link {
-      margin-left: auto;
-      color: rgba(255,255,255,0.6);
-      font-size: 12px;
-      text-decoration: none;
-    }
-
-    header .admin-link:hover { color: #fff; }
-
+    /* ── Content area ── */
     .content {
       flex: 1;
-      padding: 24px 16px;
-      overflow-y: auto;
+      padding: 20px 16px 32px;
     }
 
-    /* ── Screens ── */
+    /* ── Screen state machine ── */
     .screen { display: none; }
-    .screen.active { display: block; }
+    .screen.active {
+      display: block;
+      animation: fadeSlideIn 0.22s ease both;
+    }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
     /* ── Cards ── */
     .card {
-      background: var(--card-bg);
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 20px;
+      margin-bottom: 14px;
       box-shadow: var(--shadow);
-      margin-bottom: 16px;
     }
 
     .card-label {
       font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
+      font-weight: 700;
       letter-spacing: 0.06em;
-      color: var(--gray-text);
-      margin-bottom: 10px;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 14px;
     }
 
-    /* ── Forms ── */
-    .field-group { margin-bottom: 16px; }
+    /* ── Form fields ── */
+    .field-group { margin-bottom: 14px; }
+    .field-group:last-child { margin-bottom: 0; }
 
     label {
       display: block;
       font-size: 13px;
-      font-weight: 500;
-      color: var(--gray-text);
+      font-weight: 600;
+      color: var(--text-2);
       margin-bottom: 6px;
     }
 
     input[type="text"],
+    input[type="password"],
     select {
       width: 100%;
-      padding: 14px 16px;
-      font-size: 17px;
-      border: 2px solid var(--gray-border);
-      border-radius: 10px;
-      outline: none;
-      font-family: inherit;
-      background: #fff;
-      color: var(--dark);
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.15s, box-shadow 0.15s;
       -webkit-appearance: none;
-      transition: border-color 0.15s;
     }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(0,112,210,0.12);
+    }
+    input::placeholder { color: var(--text-3); }
 
-    input[type="text"]:focus,
-    select:focus { border-color: var(--blue); }
+    /* ── Serial scan row ── */
+    .scan-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+    .scan-row input { flex: 1; }
 
-    input::placeholder { color: #c0c4cc; }
-
-    select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; }
+    .btn-scan {
+      flex-shrink: 0;
+      width: 48px; height: 48px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--blue);
+    }
+    .btn-scan:hover { background: var(--blue-bg); border-color: var(--blue); }
+    .btn-scan:active { transform: scale(0.95); }
 
     /* ── Buttons ── */
     .btn {
@@ -154,68 +202,723 @@
       justify-content: center;
       gap: 8px;
       width: 100%;
-      padding: 16px;
-      font-size: 16px;
-      font-weight: 600;
+      padding: 14px 20px;
       border: none;
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
       cursor: pointer;
-      font-family: inherit;
-      transition: opacity 0.15s, transform 0.1s;
-      -webkit-tap-highlight-color: transparent;
+      transition: all 0.15s;
+      letter-spacing: -0.01em;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+    .btn:not(:disabled):active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: linear-gradient(160deg, #0080e8 0%, #0060bc 100%);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,112,210,0.35), 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(160deg, #0090ff 0%, #006fd4 100%);
+      box-shadow: 0 4px 16px rgba(0,112,210,0.45), 0 1px 2px rgba(0,0,0,0.1);
     }
 
-    .btn:active { transform: scale(0.98); }
-
-    .btn-primary { background: var(--blue); color: #fff; }
-    .btn-primary:hover { opacity: 0.9; }
-
-    .btn-green { background: var(--green); color: #fff; }
-    .btn-green:hover { opacity: 0.9; }
+    .btn-green {
+      background: linear-gradient(160deg, #22c55e 0%, #16a34a 100%);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(22,163,74,0.35), 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .btn-green:hover:not(:disabled) {
+      background: linear-gradient(160deg, #2dd36f 0%, #18b958 100%);
+      box-shadow: 0 4px 16px rgba(22,163,74,0.45);
+    }
 
     .btn-outline {
       background: transparent;
-      color: var(--blue);
-      border: 2px solid var(--gray-border);
-      font-size: 15px;
-      padding: 13px;
+      color: var(--text-2);
+      border: 1.5px solid var(--border-2);
+    }
+    .btn-outline:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-3);
+      color: var(--text);
     }
 
-    .btn-outline:hover { border-color: var(--blue); }
+    .mt-16 { margin-top: 14px; }
 
-    .btn-sm {
-      width: auto;
-      padding: 10px 20px;
+    /* ── Error box ── */
+    .error-box {
+      display: none;
+      background: var(--red-bg);
+      border: 1px solid var(--red-pale);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
       font-size: 14px;
+      color: var(--red);
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+    .error-box.show { display: block; }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 18px 0;
     }
 
-    .btn:disabled { opacity: 0.5; pointer-events: none; }
-
-    /* ── Scan button ── */
-    .scan-row {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .scan-row input { flex: 1; }
-
-    .btn-scan {
-      flex-shrink: 0;
-      width: 52px;
-      height: 52px;
-      padding: 0;
-      font-size: 22px;
-      background: var(--dark-blue);
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
+    /* ── Manual toggle ── */
+    .manual-toggle {
       display: flex;
       align-items: center;
-      justify-content: center;
-      -webkit-tap-highlight-color: transparent;
+      gap: 8px;
+      width: 100%;
+      padding: 12px 16px;
+      margin-top: 14px;
+      border: 1.5px dashed var(--border-2);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: left;
     }
+    .manual-toggle:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+
+    #manual-setup {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.3s ease, opacity 0.25s;
+      pointer-events: none;
+    }
+    #manual-setup.show {
+      max-height: 600px;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ── Hint text ── */
+    .text-center { text-align: center; }
+    .hint-text {
+      font-size: 13px;
+      color: var(--text-3);
+      text-align: center;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
+    /* ── Locating screen ── */
+    .locate-spinner-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 56px 24px 40px;
+      gap: 0;
+    }
+
+    .locate-rings {
+      position: relative;
+      width: 80px; height: 80px;
+      margin-bottom: 28px;
+    }
+    .locate-ring-outer {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      border-top-color: var(--blue);
+      border-right-color: rgba(0,112,210,0.2);
+      animation: spin 1s linear infinite;
+    }
+    .locate-ring-inner {
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      border: 2.5px solid transparent;
+      border-bottom-color: var(--teal);
+      border-left-color: rgba(13,148,136,0.2);
+      animation: spin 0.75s linear infinite reverse;
+    }
+    .locate-dot {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 16px; height: 16px;
+      transform: translate(-50%, -50%);
+      background: var(--blue);
+      border-radius: 50%;
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+      50%       { transform: translate(-50%,-50%) scale(0.7); opacity: 0.6; }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .locate-label {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .locate-sub {
+      font-size: 14px;
+      color: var(--text-2);
+      text-align: center;
+      line-height: 1.5;
+      max-width: 280px;
+    }
+
+    /* ── Also used inline by JS as a mini ring (locate-ring class) ── */
+    .locate-ring {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      border: 3px solid rgba(0,112,210,0.15);
+      border-top-color: var(--blue);
+      animation: spin 0.85s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── Test banner ── */
+    .test-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--amber-bg);
+      border: 1px solid var(--orange-pale);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--orange);
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+
+    /* ── Site screen header ── */
+    .sites-title    { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1.25; margin-bottom: 6px; }
+    .sites-subtitle { font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 14px; }
+
+    /* Location detected pill */
+    .loc-pill { display: inline-flex; align-items: center; gap: 7px; background: #f0fdf4; color: #15803d;
+      border: 1px solid #bbf7d0; border-radius: 20px; padding: 5px 13px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+    .loc-pill-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; flex-shrink: 0; }
+
+    /* Search + Filter row */
+    .site-search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .site-search-input { flex: 1; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 14px; background: var(--surface); color: var(--text); outline: none; font-family: inherit; }
+    .site-search-input:focus { border-color: var(--blue); }
+    .site-filter-btn { padding: 10px 16px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--surface); font-size: 14px; font-weight: 700; color: var(--text); cursor: pointer; white-space: nowrap; font-family: inherit; }
+
+    /* ── Site list ── */
+    .site-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+
+    .site-item {
+      padding: 14px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      background: var(--surface);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .site-item:hover { border-color: var(--blue); }
+    .site-item.selected {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(0,112,210,0.10);
+    }
+    /* Radio button */
+    .site-radio {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid var(--border-strong, #c8d0da);
+      flex-shrink: 0; margin-top: 1px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .site-item.selected .site-radio { border-color: var(--blue); background: var(--blue); }
+    .site-radio-inner { width: 7px; height: 7px; border-radius: 50%; background: white; display: none; }
+    .site-item.selected .site-radio-inner { display: block; }
+    /* Body */
+    .site-item-body { flex: 1; min-width: 0; }
+    .site-item-top {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 3px;
+    }
+    .site-item-name { font-size: 15px; font-weight: 700; color: var(--text); }
+    .site-item-dist { font-size: 13px; font-weight: 700; color: var(--text-2); white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+    .site-item-addr { font-size: 13px; color: var(--text-3); margin-bottom: 6px; }
+    .site-item-shells {
+      display: inline-block; font-size: 12px; font-weight: 600;
+      color: #15803d; background: #dcfce7; border-radius: 20px; padding: 2px 10px;
+    }
+    .site-item-shells.unavailable { color: var(--text-3); background: var(--surface-2, #f0f2f5); }
+
+    /* ── Selected site summary panel ── */
+    .selected-site-panel {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 16px 18px; margin-top: 16px;
+    }
+    .ssp-title { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+    .ssp-name  { font-size: 14px; color: var(--text-2); margin-bottom: 12px; }
+    .ssp-row   { display: flex; justify-content: space-between; align-items: center;
+                 padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .ssp-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .ssp-label { color: var(--text-3); }
+    .ssp-value { font-weight: 700; color: var(--text); text-align: right; max-width: 58%; }
+    .ssp-state-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #16a34a; margin-right: 5px; vertical-align: middle; }
+    .ssp-state-avail { color: #15803d; font-weight: 700; }
+
+    /* ── Show-all link ── */
+    .show-all-link {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--blue);
+      cursor: pointer;
+      text-align: center;
+      margin-top: 4px;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s;
+    }
+    .show-all-link:hover { background: var(--blue-bg); }
+
+    /* ── All-sites accordion ── */
+    .all-sites-section {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.3s ease, opacity 0.25s;
+    }
+    .all-sites-section.show { max-height: 2000px; opacity: 1; }
+
+    /* ── Conflict card ── */
+    .conflict-card {
+      background: var(--orange-bg);
+      border: 1.5px solid var(--orange-pale);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-top: 14px;
+    }
+    .conflict-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--orange);
+      margin-bottom: 6px;
+    }
+    .conflict-detail {
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+
+    /* ── Back link ── */
+    .back-link {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 10px 0;
+      background: transparent;
+      border: none;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-2);
+      cursor: pointer;
+      text-align: left;
+      margin-top: 8px;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    /* ── Port layout ── */
+    .port-section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-2);
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .port-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .port-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border-left-width: 3px;
+    }
+    .port-item.wan { border-left-color: var(--blue); }
+    .port-item.lan { border-left-color: var(--green); }
+
+    .port-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      width: 28px;
+      text-align: center;
+    }
+
+    .port-info { flex: 1; min-width: 0; }
+    .port-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .port-circuit { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+    .port-desc { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+    .port-bypass-steps { margin-top: 5px; }
+    .port-bypass-step { font-size: 12px; color: #5b21b6; line-height: 1.6; font-family: 'SF Mono', 'Menlo', monospace; }
+
+    .port-badge {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.03em;
+    }
+    .port-badge.wan-badge { background: var(--blue-pale); color: var(--blue-h); }
+    .port-badge.lan-badge { background: var(--green-pale); color: var(--green-h); }
+
+    .ports-loading, .ports-empty {
+      padding: 24px 0;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+
+    /* ── Checklist note ── */
+    .checklist-note {
+      padding: 12px 14px;
+      background: var(--amber-bg);
+      border: 1px solid var(--orange-pale);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--orange);
+      font-weight: 500;
+      margin-top: 16px;
+      line-height: 1.5;
+    }
+
+    /* ── Device flow (confirm screen) ── */
+    .device-flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 0 4px;
+    }
+
+    .flow-card {
+      width: 100%;
+      padding: 16px 18px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      text-align: center;
+      background: var(--bg);
+    }
+    .flow-card.highlight {
+      border-color: var(--blue);
+      background: var(--blue-bg);
+      box-shadow: 0 0 0 3px rgba(0,112,210,0.08);
+    }
+
+    .flow-card-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .flow-card h3 {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+    .flow-card p {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .flow-arrow {
+      font-size: 18px;
+      color: var(--text-3);
+      padding: 2px 0;
+    }
+
+    /* ── Progress steps ── */
+    .steps { display: flex; flex-direction: column; }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+      position: relative;
+    }
+
+    /* Connector line between steps */
+    .step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 19px;
+      top: 46px;
+      bottom: -2px;
+      width: 2px;
+      background: var(--border);
+      border-radius: 2px;
+      transition: background 0.4s;
+    }
+    .step.done::after  { background: var(--green); }
+    .step.active::after { background: linear-gradient(to bottom, var(--blue-pale), var(--border)); }
+
+    .step-icon {
+      flex-shrink: 0;
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      transition: all 0.3s;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step.pending .step-icon { background: var(--bg); border: 2px solid var(--border); color: var(--text-3); }
+    .step.active  .step-icon { background: var(--blue); color: #fff; box-shadow: 0 0 0 4px rgba(0,112,210,0.14); }
+    .step.done    .step-icon { background: var(--green); color: #fff; box-shadow: 0 0 0 4px rgba(22,163,74,0.12); }
+    .step.failed  .step-icon { background: var(--red); color: #fff; box-shadow: 0 0 0 4px rgba(220,38,38,0.12); }
+
+    .step-body { flex: 1; padding-top: 8px; }
+    .step-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .step.pending .step-title { color: var(--text-3); }
+    .step-subtitle { font-size: 13px; color: var(--text-2); line-height: 1.4; }
+    .step.pending .step-subtitle { color: var(--text-3); }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    /* ── Upgrade panel ── */
+    .upgrade-panel {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .uph-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 13px;
+      color: var(--text-3);
+      border-bottom: 1px solid var(--border);
+      transition: color 0.3s;
+    }
+    .uph-row:last-child { border-bottom: none; }
+    .uph-row.uph-done   { color: var(--green); }
+    .uph-row.uph-active { color: var(--blue); font-weight: 600; }
+
+    .uph-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .uph-row.uph-done   .uph-dot { background: var(--green); }
+    .uph-row.uph-active .uph-dot { background: var(--blue); box-shadow: 0 0 0 3px rgba(0,112,210,0.2); }
+
+    /* ── Network status card ── */
+    .net-status-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-top: 14px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* ── Network pills ── */
+    .net-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .net-pill.green  { background: var(--green-pale); color: var(--green); }
+    .net-pill.orange { background: var(--orange-pale); color: var(--orange); }
+    .net-pill.red    { background: var(--red-pale); color: var(--red); }
+    .net-pill.gray   { background: var(--bg); color: var(--text-3); }
+
+    /* ── Network status sections ── */
+    .ns-section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      padding: 10px 16px 6px;
+    }
+
+    .ns-iface-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 4px 16px 12px;
+    }
+
+    .ns-iface-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .ns-iface-chip.up   { background: var(--green-pale); color: var(--green); }
+    .ns-iface-chip.down { background: var(--red-pale); color: var(--red); }
+
+    .ns-iface-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    .ns-fabric-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .ns-fabric-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .ns-fabric-dot.up   { background: var(--green); }
+    .ns-fabric-dot.down { background: var(--red); }
+    .ns-fabric-dot.none { background: var(--border-2); }
+
+    .ns-fabric-name { font-weight: 600; color: var(--text); flex: 1; }
+
+    .ns-fabric-status { font-size: 12px; font-weight: 500; }
+    .ns-fabric-status.up   { color: var(--green); }
+    .ns-fabric-status.down { color: var(--red); }
+    .ns-fabric-status.none { color: var(--text-3); }
+
+    .ns-fabric-count {
+      font-size: 12px;
+      color: var(--text-3);
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    /* ── Status message & timer ── */
+    .status-msg {
+      font-size: 14px;
+      color: var(--text-2);
+      text-align: center;
+      padding: 14px 0 4px;
+      line-height: 1.5;
+    }
+    .elapsed {
+      font-size: 13px;
+      color: var(--text-3);
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      padding-bottom: 4px;
+    }
+
+    /* ── Complete screens ── */
+    .complete-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 24px 32px;
+      text-align: center;
+      animation: fadeSlideIn 0.3s ease both;
+    }
+    .complete-screen.show { display: flex; }
+
+    .big-icon {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+      flex-shrink: 0;
+    }
+    .big-icon.success {
+      background: var(--green-pale);
+      box-shadow: 0 0 0 8px var(--green-bg);
+    }
+    .big-icon.failure {
+      background: var(--red-pale);
+      box-shadow: 0 0 0 8px var(--red-bg);
+    }
+    .big-icon.animate { animation: pop-in 0.4s cubic-bezier(0.175,0.885,0.32,1.275) both; }
+    @keyframes pop-in {
+      from { transform: scale(0.5); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    .complete-title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .complete-subtitle {
+      font-size: 15px;
+      color: var(--text-2);
+      margin-bottom: 6px;
+      line-height: 1.5;
+    }
+    .complete-time {
+      font-size: 13px;
+      color: var(--text-3);
+      margin-bottom: 24px;
+    }
+    .complete-screen .btn { max-width: 320px; margin: 0 auto; }
+    .complete-screen .btn + .btn { margin-top: 10px; }
 
     /* ── Scanner overlay ── */
     #scanner-overlay {
@@ -227,565 +930,210 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 20px;
+      padding: 24px;
+      gap: 16px;
     }
-
     #scanner-overlay.open { display: flex; }
-
-    #scanner-overlay p {
-      color: #fff;
-      font-size: 15px;
-      opacity: 0.8;
+    #scanner-overlay > p {
+      color: rgba(255,255,255,0.75);
+      font-size: 14px;
+      font-weight: 500;
+      text-align: center;
     }
 
     #reader {
-      width: min(340px, 90vw);
-      border-radius: 12px;
+      width: 100%;
+      max-width: 320px;
+      border-radius: var(--radius-sm);
       overflow: hidden;
     }
 
-    #scanner-overlay .btn-cancel {
-      background: transparent;
-      color: #fff;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-radius: 10px;
-      padding: 12px 32px;
-      font-size: 15px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-    }
-
-    /* ── Error box ── */
-    .error-box {
-      display: none;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 10px;
-      padding: 14px 16px;
-      font-size: 14px;
-      color: var(--red);
-      margin-top: 12px;
-      line-height: 1.5;
-    }
-
-    .error-box.show { display: block; }
-
-    /* ── Conflict card ── */
-    .conflict-card {
-      background: #fff8f0;
-      border: 2px solid #f59e0b;
-      border-radius: 12px;
+    #scan-confirm {
+      background: var(--surface);
+      border-radius: var(--radius-sm);
       padding: 16px;
-      margin-top: 14px;
-    }
-    .conflict-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #b45309;
-      margin-bottom: 6px;
-    }
-    .conflict-detail {
-      font-size: 13px;
-      color: #78350f;
-      line-height: 1.5;
+      width: 100%;
+      max-width: 320px;
+      text-align: center;
     }
 
-    /* ── Manual setup section ── */
-    #manual-setup {
-      display: none;
-      margin-top: 16px;
-    }
-
-    #manual-setup.show { display: block; }
-
-    .manual-toggle {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--blue);
+    .btn-cancel {
+      padding: 12px 28px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px;
+      color: rgba(255,255,255,0.75);
       font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      margin-top: 12px;
-      background: none;
-      border: none;
-      font-family: inherit;
-      padding: 0;
+      transition: all 0.15s;
     }
-
-    /* ── Screen 2: Confirm ── */
-    .device-flow {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .flow-card {
-      background: var(--card-bg);
-      border: 2px solid var(--gray-border);
-      border-radius: var(--radius);
-      padding: 16px;
-    }
-
-    .flow-card.highlight {
-      border-color: var(--blue);
-      background: #eff6ff;
-    }
-
-    .flow-card-icon {
-      font-size: 28px;
-      margin-bottom: 8px;
-    }
-
-    .flow-card h3 {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .flow-card p {
-      font-size: 13px;
-      color: var(--gray-text);
-      line-height: 1.5;
-    }
-
-    .flow-arrow {
-      text-align: center;
-      font-size: 24px;
-      color: var(--gray-text);
-    }
-
-    .back-link {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--gray-text);
-      font-size: 14px;
-      cursor: pointer;
-      background: none;
-      border: none;
-      font-family: inherit;
-      padding: 0;
-      margin-top: 16px;
-    }
-
-    /* ── Screen 3: Progress ── */
-    .steps {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-
-    .step {
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
-      padding: 16px 0;
-      position: relative;
-    }
-
-    .step:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      left: 17px;
-      top: 44px;
-      bottom: 0;
-      width: 2px;
-      background: var(--gray-border);
-    }
-
-    .step.done::after { background: var(--green); }
-
-    .step-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      flex-shrink: 0;
-      font-weight: 700;
-      border: 2px solid var(--gray-border);
-      background: #fff;
-      color: var(--gray-text);
-      position: relative;
-      z-index: 1;
-    }
-
-    .step.done .step-icon {
-      background: var(--green);
-      border-color: var(--green);
-      color: #fff;
-    }
-
-    .step.active .step-icon {
-      background: var(--blue);
-      border-color: var(--blue);
-      color: #fff;
-    }
-
-    .step.failed .step-icon {
-      background: var(--red);
-      border-color: var(--red);
-      color: #fff;
-    }
-
-    .step-body { flex: 1; padding-top: 6px; }
-
-    .step-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--dark);
-    }
-
-    .step.pending .step-title { color: var(--gray-text); }
-
-    .step-subtitle {
-      font-size: 13px;
-      color: var(--gray-text);
-      margin-top: 2px;
-      line-height: 1.4;
-    }
-
-    /* Spinner */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-    .spinner {
-      width: 18px;
-      height: 18px;
-      border: 2.5px solid rgba(255,255,255,0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-    }
-
-    /* Status message */
-    .status-msg {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: var(--shadow);
-      margin-top: 20px;
-      font-size: 14px;
-      color: var(--gray-text);
-      line-height: 1.5;
-    }
-
-    .elapsed {
-      text-align: center;
-      font-size: 13px;
-      color: var(--gray-text);
-      margin-top: 12px;
-    }
-
-    /* Complete state */
-    .complete-screen {
-      display: none;
-      text-align: center;
-      padding: 16px;
-    }
-
-    .complete-screen.show { display: block; }
-
-    .big-icon {
-      width: 96px;
-      height: 96px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 48px;
-      margin: 0 auto 24px;
-    }
-
-    .big-icon.success { background: #dcfce7; }
-    .big-icon.failure { background: #fef2f2; }
-
-    @keyframes pop {
-      0% { transform: scale(0.5); opacity: 0; }
-      80% { transform: scale(1.1); }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    .big-icon.animate { animation: pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
-
-    .complete-title {
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-
-    .complete-subtitle {
-      font-size: 15px;
-      color: var(--gray-text);
-      margin-bottom: 8px;
-      line-height: 1.5;
-    }
-
-    .complete-time {
-      font-size: 13px;
-      color: var(--gray-text);
-      margin-bottom: 32px;
-    }
-
-    .divider { height: 1px; background: var(--gray-border); margin: 16px 0; }
+    .btn-cancel:hover { background: rgba(255,255,255,0.18); color: #fff; }
 
     /* ── Toast ── */
     .toast {
       position: fixed;
-      bottom: 24px;
+      bottom: 28px;
       left: 50%;
-      transform: translateX(-50%) translateY(80px);
-      background: #1f2937;
-      color: #fff;
+      transform: translateX(-50%) translateY(16px);
+      background: #1e293b;
+      color: #f1f5f9;
       padding: 12px 20px;
-      border-radius: 8px;
+      border-radius: 24px;
       font-size: 14px;
       font-weight: 500;
-      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
       z-index: 300;
-      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
-    }
-
-    .toast.show { transform: translateX(-50%) translateY(0); }
-
-    /* ── Helpers ── */
-    .loading-dots::after {
-      content: '...';
-      animation: dots 1.2s steps(4, end) infinite;
-    }
-
-    @keyframes dots {
-      0%,20%{content:''}
-      40%{content:'.'}
-      60%{content:'..'}
-      80%,100%{content:'...'}
-    }
-
-    .mt-8 { margin-top: 8px; }
-    .mt-16 { margin-top: 16px; }
-    .text-center { text-align: center; }
-
-    /* ── Locate spinner screen ── */
-    .locate-spinner-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 16px;
-      gap: 20px;
-    }
-
-    .locate-ring {
-      width: 72px;
-      height: 72px;
-      border: 5px solid var(--gray-border);
-      border-top-color: var(--blue);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    .locate-label {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--dark);
-    }
-
-    .locate-sub {
-      font-size: 14px;
-      color: var(--gray-text);
-      text-align: center;
-      line-height: 1.5;
-      margin-top: -8px;
-    }
-
-    /* ── Test mode banner ── */
-    .test-banner {
-      background: #fef3c7;
-      border: 1px solid #f59e0b;
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 13px;
-      color: #92400e;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* ── Site selection list ── */
-    .site-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .site-item {
-      background: var(--card-bg);
-      border: 2px solid var(--gray-border);
-      border-radius: var(--radius);
-      padding: 16px;
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .site-item:hover { border-color: var(--blue); }
-
-    .site-item.selected {
-      border-color: var(--blue);
-      background: #eff6ff;
-    }
-
-    .site-item-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .site-item-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--dark);
-    }
-
-    .site-item-dist {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--blue);
-      background: #dbeafe;
-      border-radius: 6px;
-      padding: 2px 8px;
       white-space: nowrap;
-      flex-shrink: 0;
+      max-width: calc(100vw - 48px);
+      box-shadow: var(--shadow-md);
     }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    .site-item-addr {
-      font-size: 13px;
-      color: var(--gray-text);
-      margin-top: 4px;
+    /* ── ION Front-panel appliance diagram ── */
+    .ion-appliance {
+      background: linear-gradient(180deg, #253b4d 0%, #172838 100%);
+      border-radius: 12px;
+      border: 4px solid #0e1b26;
+      padding: 16px 18px 18px;
+      box-shadow: 0 10px 28px rgba(7,24,45,.28);
+      position: relative;
+      margin-bottom: 14px;
     }
-
-    .site-item-shells {
-      font-size: 12px;
-      color: var(--teal);
-      margin-top: 4px;
-      font-weight: 500;
+    .appliance-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
     }
-
-    .show-all-link {
-      text-align: center;
-      font-size: 13px;
-      color: var(--blue);
-      cursor: pointer;
-      margin-top: 8px;
-      padding: 8px;
-      background: none;
-      border: none;
-      font-family: inherit;
-      width: 100%;
+    .appliance-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #7fa8c4;
     }
-
-    .all-sites-section { display: none; }
-    .all-sites-section.show { display: block; }
-
-    /* ── Port info screen ── */
-    .port-section-label {
+    .model-pill {
       font-size: 11px;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--gray-text);
-      margin: 20px 0 10px;
+      letter-spacing: .03em;
+      background: rgba(255,255,255,.08);
+      color: #b7d0e4;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.1);
     }
-    .port-section-label:first-child { margin-top: 0; }
+    .fp-ports {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+    .fp-port {
+      background: #0d1922;
+      border: 1.5px solid #3a5468;
+      border-radius: 7px;
+      padding: 8px 4px 10px;
+      color: #dce8f2;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .12s, outline .12s;
+      position: relative;
+    }
+    .fp-port::after {
+      content: '';
+      display: block;
+      height: 12px;
+      margin: 6px 8px 0;
+      border: 2px solid currentColor;
+      border-top-width: 4px;
+      border-radius: 2px;
+      opacity: .45;
+    }
+    .fp-port.wan    { color: #4eb2ff; }
+    .fp-port.lan    { color: #53dab7; }
+    .fp-port.ha     { color: #f3b950; }
+    .fp-port.bypass { color: #dd8aff; }
+    .fp-port:hover  { border-color: currentColor; }
+    .fp-port.selected { outline: 2.5px solid rgba(255,255,255,.85); outline-offset: 2px; border-color: currentColor; }
+    .fp-port-num  { font-size: 13px; font-weight: 800; display: block; }
+    .fp-port-role { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; display: block; opacity: .7; }
 
-    .port-list {
+    .fp-legend {
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
-
-    .port-item {
+    .fp-legend-item {
       display: flex;
       align-items: center;
-      gap: 14px;
-      background: var(--card-bg);
-      border: 2px solid var(--gray-border);
-      border-radius: 10px;
-      padding: 14px 16px;
-    }
-
-    .port-item.wan { border-left: 4px solid var(--blue); }
-    .port-item.lan { border-left: 4px solid var(--teal); }
-
-    .port-icon {
-      font-size: 22px;
-      flex-shrink: 0;
-      width: 36px;
-      text-align: center;
-    }
-
-    .port-info { flex: 1; }
-
-    .port-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--dark);
-    }
-
-    .port-circuit {
-      font-size: 13px;
-      color: var(--blue);
-      font-weight: 500;
-      margin-top: 2px;
-    }
-
-    .port-desc {
-      font-size: 12px;
-      color: var(--gray-text);
-      margin-top: 2px;
-    }
-
-    .port-badge {
+      gap: 5px;
       font-size: 11px;
       font-weight: 600;
-      padding: 3px 8px;
+      color: #8aafca;
+    }
+    .fp-legend-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+    }
+    .fp-legend-dot.wan    { background: #4eb2ff; }
+    .fp-legend-dot.lan    { background: #53dab7; }
+    .fp-legend-dot.ha     { background: #f3b950; }
+    .fp-legend-dot.bypass { background: #dd8aff; }
+
+    /* ── Port detail panel ── */
+    .port-detail-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      animation: fadeSlideIn .18s ease both;
+    }
+    .port-detail-name  { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+    .port-detail-role  {
+      display: inline-block;
+      font-size: 11px; font-weight: 700; letter-spacing: .04em;
+      padding: 2px 9px; border-radius: 20px; margin-bottom: 8px;
+    }
+    .port-detail-role.wan    { background: var(--blue-pale); color: var(--blue-h); }
+    .port-detail-role.lan    { background: var(--teal-pale); color: var(--teal); }
+    .port-detail-role.ha     { background: var(--amber-bg); color: var(--amber); }
+    .port-detail-role.bypass { background: var(--purple-bg); color: var(--purple); }
+    .port-detail-info  { font-size: 13px; color: var(--text-2); line-height: 1.55; }
+    .port-detail-info strong { color: var(--text); }
+    .port-detail-tip {
+      margin-top: 8px;
+      padding: 7px 10px;
       border-radius: 6px;
-      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 600;
     }
+    .port-detail-tip.wan    { background: var(--blue-bg);  color: var(--blue); }
+    .port-detail-tip.lan    { background: var(--teal-bg);  color: var(--teal); }
+    .port-detail-tip.ha     { background: var(--amber-bg); color: var(--amber); }
+    .port-detail-tip.bypass { background: var(--purple-bg);color: var(--purple); }
 
-    .port-badge.wan-badge { background: #dbeafe; color: var(--blue); }
-    .port-badge.lan-badge { background: #ccfbf1; color: var(--teal); }
-
-    .ports-loading {
-      text-align: center;
-      padding: 32px 16px;
-      color: var(--gray-text);
-      font-size: 14px;
-    }
-
-    .ports-empty {
-      text-align: center;
-      padding: 16px;
-      color: var(--gray-text);
+    /* ── Model banner at top of port list ── */
+    .ports-model-banner {
       font-size: 13px;
-      font-style: italic;
+      font-weight: 700;
+      color: var(--text-2);
+      background: var(--surface-2, #f0f2f5);
+      border-radius: var(--radius-sm);
+      padding: 7px 12px;
+      margin-bottom: 16px;
     }
 
-    .checklist-note {
-      background: #fffbeb;
-      border: 1px solid #fcd34d;
-      border-radius: 10px;
-      padding: 12px 14px;
-      font-size: 13px;
-      color: #78350f;
-      line-height: 1.5;
-      margin-top: 16px;
+    /* ── Section divider (above port list) ── */
+    .ports-section-hdr {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin: 18px 0 10px;
     }
   </style>
 </head>
@@ -793,12 +1141,20 @@
 
 <div class="app-shell">
   <header>
-    <div class="logo">P</div>
-    <div>
-      <h1>ION Device Installer</h1>
-      <p>Prisma SD-WAN Zero-Touch Provisioning</p>
+    <div class="header-left">
+      <div class="logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M2 17l10 5 10-5" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M2 12l10 5 10-5" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1>ION Device Installer</h1>
+        <p>Prisma SD-WAN Zero-Touch Provisioning</p>
+      </div>
     </div>
-    <a class="admin-link" id="admin-link" href="/admin">Admin ›</a>
+    <a class="admin-link" id="admin-link" href="/admin">Admin</a>
   </header>
 
   <div class="content">
@@ -821,19 +1177,32 @@
               autocapitalize="characters"
               spellcheck="false"
               onkeydown="if(event.key==='Enter') locateDevice()">
-            <button class="btn-scan" onclick="openScanner()" title="Scan barcode">📷</button>
+            <button class="btn-scan" onclick="openScanner()" title="Scan barcode">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </button>
           </div>
         </div>
 
         <button class="btn btn-primary" onclick="locateDevice()" id="locate-btn">
-          📍 Locate Device
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="10" r="3"/>
+            <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 6.9 8 11.7z"/>
+          </svg>
+          Locate Device
         </button>
 
         <div class="error-box" id="find-error"></div>
 
         <!-- Manual setup (shown when no pre-configured job found) -->
         <button class="manual-toggle" id="manual-toggle" onclick="toggleManual()" style="display:none;">
-          ⚙ Set up manually instead
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Set up manually instead
         </button>
 
         <div id="manual-setup">
@@ -857,7 +1226,7 @@
         </div>
       </div>
 
-      <p class="text-center" style="font-size:13px;color:var(--gray-text);">
+      <p class="hint-text">
         The serial number is on the label on the back or bottom of the device.
       </p>
     </div>
@@ -867,7 +1236,11 @@
     <!-- ═══════════════════════════════════════════════════════════ -->
     <div id="screen-locating" class="screen">
       <div class="locate-spinner-wrap">
-        <div class="locate-ring"></div>
+        <div class="locate-rings">
+          <div class="locate-ring-outer"></div>
+          <div class="locate-ring-inner"></div>
+          <div class="locate-dot"></div>
+        </div>
         <div class="locate-label">Locating device…</div>
         <div class="locate-sub" id="locate-sub-msg">Finding device in controller and detecting location</div>
       </div>
@@ -879,30 +1252,48 @@
     <!-- ═══════════════════════════════════════════════════════════ -->
     <div id="screen-sites" class="screen">
       <div id="test-banner-sites" class="test-banner" style="display:none;">
-        🧪 <span id="test-banner-text">Test location active</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="test-banner-text">Test location active</span>
       </div>
 
-      <div class="card">
-        <div class="card-label">Step 2 of 3 — Select Installation Site</div>
-        <div id="location-summary" style="font-size:13px; color:var(--gray-text); margin-bottom:16px; line-height:1.5;"></div>
+      <h1 class="sites-title">Select the installation site</h1>
+      <p class="sites-subtitle">Nearest Prisma SD-WAN sites with a Device Shell are listed first.</p>
 
-        <div class="site-list" id="nearby-site-list"></div>
+      <div class="loc-pill" id="loc-pill" style="display:none;">
+        <span class="loc-pill-dot"></span>
+        <span id="loc-pill-text">Location detected</span>
+      </div>
 
-        <div id="no-nearby-msg" style="display:none; text-align:center; padding:16px 0; color:var(--gray-text); font-size:14px; line-height:1.6;"></div>
+      <div class="site-search-row">
+        <input class="site-search-input" id="site-search-input" type="text" placeholder="Search site name, address, or city" oninput="filterSites(this.value)">
+        <button class="site-filter-btn">Filter</button>
+      </div>
 
-        <button class="show-all-link" id="show-all-btn" onclick="toggleAllSites()" style="display:none;">
-          Show all sites →
-        </button>
+      <div class="site-list" id="nearby-site-list"></div>
 
-        <div class="all-sites-section" id="all-sites-section">
-          <div class="divider"></div>
-          <div class="card-label" style="margin-bottom:10px;">All Sites (sorted by distance)</div>
-          <div class="site-list" id="all-site-list"></div>
-        </div>
+      <div id="no-nearby-msg" style="display:none; text-align:center; padding:16px 0; color:var(--text-2); font-size:14px; line-height:1.6;"></div>
+
+      <button class="show-all-link" id="show-all-btn" onclick="toggleAllSites()" style="display:none;">
+        Show all sites →
+      </button>
+
+      <div class="all-sites-section" id="all-sites-section">
+        <div class="divider"></div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px;">All Sites (sorted by distance)</div>
+        <div class="site-list" id="all-site-list"></div>
+      </div>
+
+      <!-- Selected site summary -->
+      <div class="selected-site-panel" id="selected-site-panel" style="display:none;">
+        <div class="ssp-title">Selected site</div>
+        <div class="ssp-name" id="ssp-name"></div>
+        <div class="ssp-row"><span class="ssp-label">Distance</span><span class="ssp-value" id="ssp-dist">—</span></div>
+        <div class="ssp-row"><span class="ssp-label">Device Shell</span><span class="ssp-value" id="ssp-shell">—</span></div>
+        <div class="ssp-row"><span class="ssp-label">Shell state</span><span class="ssp-value ssp-state-avail" id="ssp-state"><span class="ssp-state-dot"></span>Available</span></div>
       </div>
 
       <button class="btn btn-green mt-16" onclick="continueWithSite()" id="continue-site-btn" disabled>
-        ▶ Continue with Selected Site
+        Continue with Selected Site
       </button>
 
       <!-- Conflict card — shown when an active job already exists for this serial -->
@@ -916,7 +1307,8 @@
       </div>
 
       <button class="back-link" onclick="showScreen('screen-scan')">
-        ← Back
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
       </button>
     </div>
 
@@ -926,7 +1318,7 @@
     <div id="screen-ports" class="screen">
       <div class="card">
         <div class="card-label">Cable Verification — Port Layout</div>
-        <p style="font-size:13px; color:var(--gray-text); margin-bottom:16px; line-height:1.5;">
+        <p style="font-size:13px; color:var(--text-2); margin-bottom:16px; line-height:1.5;">
           Verify that the WAN cables are connected to the correct ports before continuing.
         </p>
 
@@ -947,7 +1339,8 @@
       </button>
 
       <button class="back-link" onclick="showScreen('screen-sites')">
-        ← Back to Sites
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Sites
       </button>
     </div>
 
@@ -962,11 +1355,16 @@
             <div class="flow-card-icon">📦</div>
             <h3>Device</h3>
             <p id="confirm-serial">—</p>
-            <p id="confirm-model" style="margin-top:2px;"></p>
+            <p id="confirm-model" style="margin-top:2px;font-size:13px;font-weight:500;color:var(--text-2);"></p>
           </div>
           <div class="flow-arrow">↓</div>
           <div class="flow-card highlight">
-            <div class="flow-card-icon">📍</div>
+            <div class="flow-card-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="10" r="3"/>
+                <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 6.9 8 11.7z"/>
+              </svg>
+            </div>
             <h3 id="confirm-site">—</h3>
             <p id="confirm-shell">—</p>
           </div>
@@ -978,7 +1376,8 @@
       </button>
 
       <button class="back-link" onclick="showScreen('screen-scan')">
-        ← Back
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
       </button>
     </div>
 
@@ -1030,6 +1429,12 @@
               <div class="step-body">
                 <div class="step-title">Software Upgrade</div>
                 <div class="step-subtitle" id="step-5-sub">Pending…</div>
+                <div id="upgrade-panel" class="upgrade-panel" style="display:none;">
+                  <div class="uph-row" id="uph-1"><span class="uph-dot"></span><span id="uph-1-text">Installing software update</span></div>
+                  <div class="uph-row" id="uph-2"><span class="uph-dot"></span><span id="uph-2-text">Device rebooting</span></div>
+                  <div class="uph-row" id="uph-3"><span class="uph-dot"></span><span id="uph-3-text">Waiting to come back online</span></div>
+                  <div class="uph-row" id="uph-4"><span class="uph-dot"></span><span id="uph-4-text">Verifying software version</span></div>
+                </div>
               </div>
             </div>
 
@@ -1044,27 +1449,46 @@
           </div>
         </div>
 
+        <!-- Network status table — shown during fabric_check and on success screen -->
+        <div id="net-status-card" class="net-status-card" style="display:none;">
+          <div class="card-label" style="padding:12px 16px; font-size:12px; color:#666; font-weight:600; text-transform:uppercase; letter-spacing:.04em;">Network Status</div>
+          <div id="net-table-body"></div>
+        </div>
+
         <div class="status-msg" id="status-msg">Starting installation…</div>
         <div class="elapsed" id="elapsed-timer"></div>
       </div>
 
-      <!-- Complete state -->
+      <!-- Complete state — success -->
       <div class="complete-screen" id="complete-success">
-        <div class="big-icon success animate">✅</div>
+        <div class="big-icon success animate">
+          <svg viewBox="0 0 24 24" fill="none" width="44" height="44">
+            <path d="M20 6L9 17l-5-5" stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
         <div class="complete-title">Installation Complete!</div>
         <div class="complete-subtitle" id="success-site-line">Device is now active.</div>
         <div class="complete-time" id="success-time"></div>
+        <!-- Network status summary persists here on success -->
+        <div id="net-status-card-success" class="net-status-card" style="display:none; text-align:left; margin:16px auto; max-width:420px;">
+          <div class="card-label" style="padding:12px 16px; font-size:12px; color:#666; font-weight:600; text-transform:uppercase; letter-spacing:.04em;">Network Status</div>
+          <div id="net-table-body-success"></div>
+        </div>
         <button class="btn btn-primary" onclick="resetApp()">Install Another Device</button>
         <button class="btn btn-outline" id="recheck-btn-success" onclick="recheckNetwork()" style="margin-top:10px;display:none;">Re-check Network Connectivity</button>
       </div>
 
       <!-- Failed state -->
       <div class="complete-screen" id="complete-failed">
-        <div class="big-icon failure animate">❌</div>
+        <div class="big-icon failure animate">
+          <svg viewBox="0 0 24 24" fill="none" width="44" height="44">
+            <path d="M18 6L6 18M6 6l12 12" stroke="#dc2626" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
         <div class="complete-title" style="color:var(--red);">Installation Failed</div>
         <div class="complete-subtitle" id="failed-msg">An error occurred.</div>
         <div class="complete-time" id="failed-hint">Contact your supervisor with the error above.</div>
-        <div class="mt-16" style="display:flex;flex-direction:column;gap:10px;max-width:320px;margin:0 auto;">
+        <div class="mt-16" style="display:flex;flex-direction:column;gap:10px;max-width:320px;margin:0 auto;width:100%;">
           <button class="btn btn-primary" id="recheck-btn-failed" onclick="recheckNetwork()" style="display:none;">Re-check Network Connectivity</button>
           <div style="display:flex;gap:12px;">
             <button class="btn btn-outline" onclick="resetApp()" style="flex:1;">Start Over</button>
@@ -1276,6 +1700,8 @@ function cancelLocate() {
 function populateSitesScreen(data) {
   selectedSite = null;
   document.getElementById('continue-site-btn').disabled = true;
+  document.getElementById('selected-site-panel').style.display = 'none';
+  document.getElementById('site-search-input').value = '';
 
   // Test banner
   const banner = document.getElementById('test-banner-sites');
@@ -1287,12 +1713,15 @@ function populateSitesScreen(data) {
     banner.style.display = 'none';
   }
 
-  // Location summary
-  const parts = [data.city, data.region, data.country].filter(Boolean);
-  const locLabel = parts.length ? parts.join(', ') : `(${data.lat.toFixed(3)}, ${data.lon.toFixed(3)})`;
-  const ipNote = data.ip ? ` · IP: ${data.ip}` : '';
-  document.getElementById('location-summary').textContent =
-    `Detected location: ${locLabel}${ipNote} · Radius: ${data.radius_km} km`;
+  // Location pill
+  const pill = document.getElementById('loc-pill');
+  const pillText = document.getElementById('loc-pill-text');
+  if (data.lat != null && data.lon != null) {
+    pillText.textContent = `Location detected · ${data.lat.toFixed(4)}, ${data.lon.toFixed(4)}`;
+    pill.style.display = '';
+  } else {
+    pill.style.display = 'none';
+  }
 
   const nearbyList = document.getElementById('nearby-site-list');
   const noNearbyMsg = document.getElementById('no-nearby-msg');
@@ -1344,21 +1773,36 @@ function buildSiteItem(site, isSelected, distanceOnly) {
   item.className = 'site-item' + (isSelected ? ' selected' : '');
   item.dataset.siteId = site.id;
 
-  const distStr = site.distance_km != null ? `${site.distance_km} km` : '';
-  const shellStr = site.available_shells != null
-    ? `${site.available_shells} shell${site.available_shells !== 1 ? 's' : ''} available`
-    : (distanceOnly ? 'tap to check availability' : '');
+  const distMi = site.distance_km != null ? (site.distance_km * 0.621371).toFixed(1) + ' mi' : '';
+  let shellBadge = '';
+  if (site.available_shells != null) {
+    const n = site.available_shells;
+    shellBadge = `<span class="site-item-shells">${n} available Device Shell${n !== 1 ? 's' : ''}</span>`;
+  } else if (distanceOnly) {
+    shellBadge = `<span class="site-item-shells unavailable">Tap to check availability</span>`;
+  }
 
   item.innerHTML = `
-    <div class="site-item-top">
-      <div class="site-item-name">${site.name}</div>
-      ${distStr ? `<div class="site-item-dist">${distStr}</div>` : ''}
+    <div class="site-radio"><div class="site-radio-inner"></div></div>
+    <div class="site-item-body">
+      <div class="site-item-top">
+        <div class="site-item-name">${esc(site.name)}</div>
+        ${distMi ? `<div class="site-item-dist">${distMi}</div>` : ''}
+      </div>
+      ${site.address_str ? `<div class="site-item-addr">${esc(site.address_str)}</div>` : ''}
+      ${shellBadge}
     </div>
-    ${site.address_str ? `<div class="site-item-addr">${site.address_str}</div>` : ''}
-    ${shellStr ? `<div class="site-item-shells">🔌 ${shellStr}</div>` : ''}
   `;
   item.onclick = () => selectSite(site, distanceOnly);
   return item;
+}
+
+function filterSites(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.site-item').forEach(el => {
+    const text = el.textContent.toLowerCase();
+    el.style.display = text.includes(q) ? '' : 'none';
+  });
 }
 
 async function selectSite(site, needsShellFetch) {
@@ -1369,18 +1813,20 @@ async function selectSite(site, needsShellFetch) {
 
   if (needsShellFetch || !site.shell_id) {
     // Fetch shells for this site on demand (for "all sites" entries)
-    el && (el.querySelector('.site-item-shells').textContent = '🔌 Checking availability…');
+    const shellSpan = el && el.querySelector('.site-item-shells');
+    if (shellSpan) shellSpan.textContent = 'Checking availability…';
     try {
       const res = await fetch(BASE + '/api/shells');
       const data = await res.json();
       const shells = (data.shells || []).filter(s => s.site_id === site.id);
       if (shells.length === 0) {
-        el && (el.querySelector('.site-item-shells').textContent = '⚠ No shells available at this site');
+        if (shellSpan) { shellSpan.textContent = 'No shells available'; shellSpan.classList.add('unavailable'); }
         showToast('No available shells at this site — choose another.');
         return;
       }
-      site = { ...site, shell_id: shells[0].id, shell_name: shells[0].name, available_shells: shells.length };
-      el && (el.querySelector('.site-item-shells').textContent = `🔌 ${shells.length} shell${shells.length!==1?'s':''} available`);
+      site = { ...site, shell_id: shells[0].id, shell_name: shells[0].name, available_shells: shells.length,
+               shell_element_id: shells[0].element_id || null };  // actual element entity ID (≠ shell's own ID)
+      if (shellSpan) { shellSpan.textContent = `${shells.length} available Device Shell${shells.length!==1?'s':''}`; shellSpan.classList.remove('unavailable'); }
     } catch {
       showToast('Could not check shell availability. Try again.');
       return;
@@ -1389,6 +1835,17 @@ async function selectSite(site, needsShellFetch) {
 
   selectedSite = site;
   document.getElementById('continue-site-btn').disabled = false;
+
+  // Populate selected-site summary panel
+  const panel = document.getElementById('selected-site-panel');
+  document.getElementById('ssp-name').textContent = site.name;
+  const distMi = site.distance_km != null ? (site.distance_km * 0.621371).toFixed(1) + ' miles' : '—';
+  document.getElementById('ssp-dist').textContent = distMi;
+  const shellLabel = site.shell_name
+    ? (site.machine_model || site.element_model ? `${site.machine_model || site.element_model} · ${site.shell_name}` : site.shell_name)
+    : '—';
+  document.getElementById('ssp-shell').textContent = shellLabel;
+  panel.style.display = '';
 }
 
 async function continueWithSite() {
@@ -1407,7 +1864,8 @@ async function continueWithSite() {
         serial_number: serial,
         site_id: selectedSite.id,
         site_name: selectedSite.name,
-        element_id: selectedSite.shell_id || undefined,
+        element_shell_id: selectedSite.shell_id || undefined,          // shell's own ID — for claim + port APIs
+        element_id: selectedSite.shell_element_id || undefined,        // actual element entity ID — for monitoring APIs
         element_name: selectedSite.shell_name || undefined,
       })
     });
@@ -1417,7 +1875,7 @@ async function continueWithSite() {
       const j = conflictJob;
       const statusLabels = { pending:'Pending', searching:'Searching', waiting_online:'Coming Online',
         assigning:'Claiming', provisioning:'Provisioning', upgrading:'Upgrading',
-        fabric_check:'Network Check', assigned:'Installed', failed:'Failed' };
+        version_check:'Verifying', fabric_check:'Network Check', assigned:'Installed', failed:'Failed' };
       const created = j.created_at ? new Date(j.created_at).toLocaleTimeString() : '—';
       document.getElementById('conflict-detail').textContent =
         `Status: ${statusLabels[j.status] || j.status} · Site: ${j.site_name || '—'} · Shell: ${j.element_name || '—'} · Started: ${created}`;
@@ -1491,8 +1949,9 @@ async function loadPortsScreen(jobId) {
   try {
     const res = await fetch(BASE + `/api/jobs/${jobId}/ports`);
     const data = await res.json();
-    const ports = data.ports || { wan_ports: [], lan_ports: [] };
-    renderPorts(ports);
+    const ports = data.ports || { wan_ports: [], lan_ports: [], ha_ports: [], bypass_pairs: [] };
+    const model = data.model_name || currentJob.machine_model || currentJob.element_model || '';
+    renderPorts(ports, model);
     note.style.display = 'block';
   } catch {
     container.innerHTML = '<div class="ports-empty">Could not load port configuration. You can still continue.</div>';
@@ -1500,46 +1959,138 @@ async function loadPortsScreen(jobId) {
   }
 }
 
-function renderPorts(ports) {
+function renderPorts(ports, model) {
   const container = document.getElementById('ports-content');
+  const modelBanner = model
+    ? `<div class="ports-model-banner">${esc(model)}</div>`
+    : '';
+  const stamp = window.__BUILD_TS__
+    ? `<div style="font-size:10px;color:#94a3b8;text-align:right;margin-bottom:4px;">build ${window.__BUILD_TS__}</div>`
+    : '';
+  container.innerHTML = stamp + modelBanner + buildPortListHtml(ports);
+}
+
+function selectFpPort(idx) {
+  const allPorts = window._fpPortData || [];
+  const port = allPorts[idx];
+  if (!port) return;
+
+  // Toggle selection
+  document.querySelectorAll('.fp-port').forEach(el => el.classList.remove('selected'));
+  const btn = document.querySelector(`.fp-port[data-fp-idx="${idx}"]`);
+  if (btn) btn.classList.add('selected');
+
+  // Build detail content
+  const roleLabels = { wan: 'WAN', lan: 'LAN', ha: 'HA', bypass: 'Bypass' };
+  const tipText = {
+    wan:    '🔌 Connect ISP / carrier cable to this port.',
+    lan:    '🖥 Connect switch or endpoint to this port.',
+    ha:     '🔗 Connect HA crossover cable to the paired ION device.',
+    bypass: '⚡ Connect inline (both ends of the protected link) to this bypass pair.',
+  };
+
+  let info = '';
+  if (port.circuit) info += `<div><strong>Circuit:</strong> ${esc(port.circuit)}</div>`;
+  if (port.wan_type && !port.circuit) info += `<div><strong>Type:</strong> ${esc(port.wan_type)}</div>`;
+  if (port.peer)    info += `<div><strong>Paired with:</strong> Port ${esc(port.peer)}</div>`;
+  if (port.description) info += `<div><strong>Description:</strong> ${esc(port.description)}</div>`;
+
+  const panel = document.getElementById('fp-detail-panel');
+  panel.innerHTML = `
+    <div class="port-detail-name">Port ${esc(port.name)}</div>
+    <span class="port-detail-role ${port.role}">${roleLabels[port.role]}</span>
+    ${info ? `<div class="port-detail-info">${info}</div>` : ''}
+    <div class="port-detail-tip ${port.role}">${tipText[port.role] || ''}</div>
+  `;
+  panel.style.display = '';
+}
+
+function parsePairName(p) {
+  const n = String(p.name);
+  // Multi-digit all-numeric name (e.g. "34") = API's combined bypass pair label.
+  // "34" means Port 3 & Port 4. Split first — peer field is irrelevant here.
+  if (/^\d{2,}$/.test(n)) {
+    if (n.length === 2) return [n[0], n[1]];
+    const mid = Math.floor(n.length / 2);
+    return [n.slice(0, mid), n.slice(mid)];
+  }
+  // Separator-based: "3/4", "3-4"
+  const sepMatch = n.match(/^(.+?)[\/\-](.+)$/);
+  if (sepMatch) return [sepMatch[1].trim(), sepMatch[2].trim()];
+  // Single port name with a resolved peer (e.g. name="3", peer="4")
+  const peerStr = String(p.peer || '');
+  if (peerStr && !/^\d{10,}$/.test(peerStr) && peerStr !== n) return [n, peerStr];
+  return [n];
+}
+
+function buildPortListHtml(ports) {
   let html = '';
 
   if (ports.wan_ports && ports.wan_ports.length > 0) {
-    html += '<div class="port-section-label">WAN Ports — Connect ISP cables here</div><div class="port-list">';
+    html += '<div class="ports-section-hdr">WAN Ports — Connect ISP cables here</div><div class="port-list">';
     ports.wan_ports.forEach(p => {
       const circuit = p.circuit ? `<div class="port-circuit">🌐 ${esc(p.circuit)}</div>` : '';
+      const typeHint = !p.circuit && p.wan_type ? `<div class="port-desc">${esc(p.wan_type)}</div>` : '';
       const desc = p.description ? `<div class="port-desc">${esc(p.description)}</div>` : '';
       html += `<div class="port-item wan">
         <div class="port-icon">🔌</div>
-        <div class="port-info">
-          <div class="port-name">Port ${esc(p.name)}</div>
-          ${circuit}${desc}
-        </div>
+        <div class="port-info"><div class="port-name">Port ${esc(p.name)}</div>${circuit}${typeHint}${desc}</div>
         <span class="port-badge wan-badge">WAN</span>
       </div>`;
     });
     html += '</div>';
-  } else {
-    html += '<div class="port-section-label">WAN Ports</div><div class="ports-empty">No WAN port configuration found — check the device model spec.</div>';
+  }
+
+  if (ports.ha_ports && ports.ha_ports.length > 0) {
+    html += '<div class="ports-section-hdr" style="margin-top:18px;">HA Ports</div><div class="port-list">';
+    ports.ha_ports.forEach(p => {
+      const desc = p.description ? `<div class="port-desc">${esc(p.description)}</div>` : '';
+      html += `<div class="port-item" style="border-left:3px solid #f3b950;">
+        <div class="port-icon">🔗</div>
+        <div class="port-info"><div class="port-name">Port ${esc(p.name)}</div>${desc}</div>
+        <span class="port-badge" style="background:#fef3c7;color:#92400e;">HA</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  if (ports.bypass_pairs && ports.bypass_pairs.length > 0) {
+    html += '<div class="ports-section-hdr" style="margin-top:18px;">Bypass Pairs — Connect inline link cables here</div><div class="port-list">';
+    ports.bypass_pairs.forEach(p => {
+      const pair = parsePairName(p);
+      const a = pair[0] ? `Port ${esc(pair[0])}` : '';
+      const b = pair[1] ? `Port ${esc(pair[1])}` : '';
+      const pairTitle = (a && b) ? `Bypass Pair (${a} &amp; ${b})` : `Bypass Pair (${a || b})`;
+      const crossConnect = (a && b)
+        ? `<div class="port-bypass-steps">
+            <div class="port-bypass-step">Connect: ION1 ${a} → ION2 ${b}</div>
+            <div class="port-bypass-step">Connect: ION1 ${b} → ION2 ${a}</div>
+          </div>`
+        : '';
+      const desc = p.description ? `<div class="port-desc">${esc(p.description)}</div>` : '';
+      html += `<div class="port-item" style="border-left:3px solid #dd8aff;align-items:flex-start;">
+        <div class="port-icon" style="margin-top:2px;">⚡</div>
+        <div class="port-info"><div class="port-name">${pairTitle}</div>${crossConnect}${desc}</div>
+        <span class="port-badge" style="background:#ede9fe;color:#5b21b6;flex-shrink:0;">Bypass</span>
+      </div>`;
+    });
+    html += '</div>';
   }
 
   if (ports.lan_ports && ports.lan_ports.length > 0) {
-    html += '<div class="port-section-label" style="margin-top:20px;">LAN Ports — Connect switches/endpoints here</div><div class="port-list">';
+    html += '<div class="ports-section-hdr" style="margin-top:18px;">LAN Ports — Connect switches here</div><div class="port-list">';
     ports.lan_ports.forEach(p => {
       const desc = p.description ? `<div class="port-desc">${esc(p.description)}</div>` : '';
       html += `<div class="port-item lan">
         <div class="port-icon">🖥</div>
-        <div class="port-info">
-          <div class="port-name">Port ${esc(p.name)}</div>
-          ${desc}
-        </div>
+        <div class="port-info"><div class="port-name">Port ${esc(p.name)}</div>${desc}</div>
         <span class="port-badge lan-badge">LAN</span>
       </div>`;
     });
     html += '</div>';
   }
 
-  container.innerHTML = html || '<div class="ports-empty">No port configuration available for this device model.</div>';
+  return html || '<div class="ports-empty">No port configuration available for this device model.</div>';
 }
 
 function continueFromPorts() {
@@ -1555,7 +2106,6 @@ function toggleAllSites() {
 }
 
 // ── Screen 1: Find / Manual ────────────────────────────────────────────────
-
 function showFindError(msg) {
   const el = document.getElementById('find-error');
   el.textContent = msg;
@@ -1626,7 +2176,8 @@ async function createAndStartManual() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         serial_number: serial,
-        element_id: shell.id,
+        element_shell_id: shell.id,           // shell's own ID — for claim + port APIs
+        element_id: shell.element_id || null, // actual element entity ID — for monitoring APIs
         element_name: shell.name,
         element_model: shell.model,
         site_id: shell.site_id,
@@ -1672,8 +2223,12 @@ async function beginInstallation() {
   btn.disabled = true;
   btn.textContent = 'Starting…';
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+
   try {
-    const res = await fetch(BASE + `/api/jobs/${currentJob.id}/start`, { method: 'POST' });
+    const res = await fetch(BASE + `/api/jobs/${currentJob.id}/start`, { method: 'POST', signal: controller.signal });
+    clearTimeout(timer);
     const data = await res.json();
     if (!res.ok) { showToast(data.error || 'Could not start.'); btn.disabled = false; btn.textContent = '▶ Begin Installation'; return; }
     currentJob = data.job;
@@ -1681,8 +2236,9 @@ async function beginInstallation() {
     showScreen('screen-progress');
     resetProgressUI();
     startPolling();
-  } catch {
-    showToast('Network error. Try again.');
+  } catch (e) {
+    clearTimeout(timer);
+    showToast(e.name === 'AbortError' ? 'Server timeout — please try again.' : 'Network error. Try again.');
     btn.disabled = false;
     btn.textContent = '▶ Begin Installation';
   }
@@ -1695,7 +2251,7 @@ const STEPS = [
   { id: 'step-3', status: 'assigning',      label: 'Claiming Device',        activeText: 'Assigning to site shell…',                 doneText: 'Device claimed' },
   { id: 'step-4', status: 'provisioning',   label: 'Site Provisioning',      activeText: 'Waiting for site provisioning…',           doneText: 'Provisioned' },
   { id: 'step-5', status: 'upgrading',      label: 'Software Upgrade',       activeText: 'Checking software version…',               doneText: 'Software current' },
-  { id: 'step-6', status: 'fabric_check',   label: 'Network Connectivity',   activeText: 'Checking SD-Fabric tunnels…',              doneText: 'Network connected' },
+  { id: 'step-6', status: 'fabric_check',   label: 'Network Connectivity',   activeText: 'Checking SDWAN Fabric tunnels…',              doneText: 'Network connected' },
 ];
 
 const STATUS_STEP_MAP = {
@@ -1704,6 +2260,7 @@ const STATUS_STEP_MAP = {
   assigning:      3,
   provisioning:   4,
   upgrading:      5,
+  version_check:  5,
   fabric_check:   6,
   assigned:       7,  // > 6 so all steps render as done
 };
@@ -1737,7 +2294,10 @@ function updateProgressUI(job) {
     } else if (stepNum < currentStep || job.status === 'assigned') {
       el.className = 'step done';
       iconEl.textContent = '✓';
-      subEl.textContent = s.doneText;
+      // Step 5 done: show confirmed running version if available
+      const doneLabel = (stepNum === 5 && job.running_version)
+        ? `Running ${job.running_version}` : s.doneText;
+      subEl.textContent = doneLabel;
     } else if (stepNum === currentStep && job.status !== 'assigned') {
       el.className = 'step active';
       iconEl.innerHTML = '<div class="spinner"></div>';
@@ -1750,6 +2310,115 @@ function updateProgressUI(job) {
   });
 
   document.getElementById('status-msg').textContent = job.message || '';
+
+  updateUpgradePanel(job);
+  updateNetworkTable(job);
+}
+
+// ── Upgrade phase sub-panel (step 5) ───────────────────────────────────────
+function updateUpgradePanel(job) {
+  const panel = document.getElementById('upgrade-panel');
+  const inUpgrade = job.status === 'upgrading' || job.status === 'version_check';
+  const pastUpgrade = (STATUS_STEP_MAP[job.status] || 0) > 5 || job.status === 'assigned';
+  const show = inUpgrade || pastUpgrade;
+  panel.style.display = show ? '' : 'none';
+  if (!show) return;
+
+  const phase = job.upgrade_phase || (pastUpgrade ? 5 : 1);
+  const verLabel = (job.from_version && job.to_version)
+    ? ` (${job.from_version} → ${job.to_version})` : '';
+  const runningLabel = job.running_version ? ` — ${job.running_version}` : '';
+
+  document.getElementById('uph-1-text').textContent = `Installing software update${verLabel}`;
+  document.getElementById('uph-4-text').textContent = `Verifying software version${runningLabel}`;
+
+  [1, 2, 3, 4].forEach(n => {
+    const row = document.getElementById(`uph-${n}`);
+    row.className = 'uph-row' + (
+      n < phase  ? ' uph-done'   :
+      n === phase && phase < 5 ? ' uph-active' : ''
+    );
+  });
+}
+
+// ── Network status table (fabric_check + success screen) ───────────────────
+function resultBadge(result) {
+  if (result === 'pass') return '<span class="net-pill green">✓ Up</span>';
+  if (result === 'init') return '<span class="net-pill orange">◉ Starting</span>';
+  if (result === 'fail') return '<span class="net-pill red">✗ Down</span>';
+  if (result === 'n/a')  return '<span class="net-pill gray">— N/A</span>';
+  return '<span class="net-pill gray">—</span>';
+}
+
+function buildNetRows(ns) {
+  if (!ns) return '';
+
+  const ifaces  = ns.interfaces || [];
+  const fabric  = ns.fabric     || [];
+
+  let html = '';
+
+  // --- Interfaces section ---
+  if (ifaces.length > 0) {
+    html += `<div class="ns-section-label">Interfaces</div>`;
+    html += `<div class="ns-iface-row">`;
+    for (const iface of ifaces) {
+      const cls  = iface.up ? 'up' : 'down';
+      const arrow = iface.up ? '↑' : '↓';
+      const sub  = iface.role === 'WAN' && iface.circuit
+                   ? `<span style="font-weight:400;opacity:.75;font-size:11px;"> ${iface.circuit}</span>`
+                   : `<span style="font-weight:400;opacity:.65;font-size:11px;"> ${iface.role}</span>`;
+      html += `<span class="ns-iface-chip ${cls}">
+        <span class="ns-iface-dot"></span>${iface.name} ${arrow}${sub}
+      </span>`;
+    }
+    html += `</div>`;
+  }
+
+  // --- Fabric section ---
+  if (fabric.length > 0) {
+    html += `<div class="ns-section-label">Fabric</div>`;
+    for (const row of fabric) {
+      const none = row.count === 0;
+      const dotCls    = none ? 'none' : row.connected ? 'up' : 'down';
+      const statusCls = none ? 'none' : row.connected ? 'up' : 'down';
+      const statusTxt = none ? 'Not configured'
+                      : row.connected ? 'Connected' : 'Not connected';
+      let countTxt = '';
+      if (!none && row.count > 0) {
+        const peers = row.peers && row.peers.length > 0 ? row.peers : null;
+        if (peers) {
+          const MAX_SHOW = 3;
+          const shown = peers.slice(0, MAX_SHOW).join(', ');
+          const extra = peers.length > MAX_SHOW ? ` +${peers.length - MAX_SHOW} more` : '';
+          countTxt = `<span class="ns-fabric-count">${shown}${extra}</span>`;
+        } else {
+          countTxt = `<span class="ns-fabric-count">${row.up}/${row.count} tunnel${row.count !== 1 ? 's' : ''}</span>`;
+        }
+      }
+      html += `<div class="ns-fabric-row">
+        <span class="ns-fabric-dot ${dotCls}"></span>
+        <span class="ns-fabric-name">${row.name}</span>
+        <span class="ns-fabric-status ${statusCls}">${statusTxt}</span>${countTxt}
+      </div>`;
+    }
+  }
+
+  return html;
+}
+
+function updateNetworkTable(job) {
+  const card = document.getElementById('net-status-card');
+  const tbody = document.getElementById('net-table-body');
+  const isFabric = job.status === 'fabric_check' || job.status === 'assigned';
+  const hasPast6 = (STATUS_STEP_MAP[job.status] || 0) >= 6;
+
+  if (!(isFabric || hasPast6) || !job.network_status) {
+    card.style.display = 'none';
+    return;
+  }
+  tbody.innerHTML = buildNetRows(job.network_status);
+  card.style.display = '';
 }
 
 function showCompleteSuccess(job) {
@@ -1760,13 +2429,17 @@ function showCompleteSuccess(job) {
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     document.getElementById('success-time').textContent = `Total time: ${formatElapsed(elapsed)}`;
   }
-  // Show recheck button only when something that IS configured is NOT up
+  // Copy network status table content to success screen
   const ns = job.network_status;
-  const tunnelsPending = ns && (
-    (ns.sdwan_tunnels?.configured && !ns.sdwan_tunnels?.up) ||
-    (ns.prisma_access?.configured && !ns.prisma_access?.up)
-  );
-  document.getElementById('recheck-btn-success').style.display = tunnelsPending ? '' : 'none';
+  const successCard = document.getElementById('net-status-card-success');
+  const successBody = document.getElementById('net-table-body-success');
+  if (ns) {
+    successBody.innerHTML = buildNetRows(ns);
+    successCard.style.display = '';
+  }
+  // Show recheck button if any fabric row is not connected
+  const anyDown = ns && !(ns.all_up);
+  document.getElementById('recheck-btn-success').style.display = anyDown ? '' : 'none';
 }
 
 function showCompleteFailed(job) {
@@ -1836,7 +2509,8 @@ async function retryJob() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         serial_number: currentJob.serial_number,
-        element_id: currentJob.element_id,
+        element_shell_id: currentJob.element_shell_id,  // shell's own ID — for claim + port APIs
+        element_id: currentJob.element_id,              // actual element entity ID — for monitoring APIs
         element_name: currentJob.element_name,
         element_model: currentJob.element_model,
         site_id: currentJob.site_id,
