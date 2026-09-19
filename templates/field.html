@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ION Field Installer</title>
   <script>window.__BUILD_TS__ = "{{ build_ts }}";</script>
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://unpkg.com/@zxing/library@0.19.2/umd/index.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -928,6 +928,14 @@
       background: var(--red-pale);
       box-shadow: 0 0 0 8px var(--red-bg);
     }
+    .big-icon.warning {
+      background: var(--orange-pale);
+      box-shadow: 0 0 0 8px var(--orange-bg);
+    }
+    .big-icon.checking {
+      background: var(--blue-pale);
+      box-shadow: 0 0 0 8px var(--blue-bg);
+    }
     .big-icon.animate { animation: pop-in 0.4s cubic-bezier(0.175,0.885,0.32,1.275) both; }
     @keyframes pop-in {
       from { transform: scale(0.5); opacity: 0; }
@@ -976,12 +984,34 @@
       text-align: center;
     }
 
-    #reader {
+    #reader-video {
       width: 100%;
-      max-width: 320px;
+      max-width: 380px;
+      max-height: 55vh;
       border-radius: var(--radius-sm);
-      overflow: hidden;
+      object-fit: cover;
+      background: #000;
+      display: block;
     }
+
+    #scan-hint {
+      color: rgba(255,255,255,0.6);
+      font-size: 12px;
+      text-align: center;
+      margin-top: -8px;
+    }
+
+    #torch-btn {
+      padding: 8px 18px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 20px;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      display: none;
+    }
+    #torch-btn.on { background: #f3b950; border-color: #f3b950; color: #000; }
 
     #scan-confirm {
       background: var(--surface);
@@ -1170,6 +1200,259 @@
       color: var(--text-3);
       margin: 18px 0 10px;
     }
+
+    /* ── HA mode banner ── */
+    .ha-mode-banner {
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      border: 1.5px solid #93c5fd;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ha-mode-banner .ha-icon { font-size: 22px; flex-shrink: 0; }
+    .ha-mode-banner .ha-title { font-size: 13px; font-weight: 700; color: #1e40af; }
+    .ha-mode-banner .ha-sub { font-size: 12px; color: #3b82f6; margin-top: 2px; }
+
+    /* ── HA serial input row ── */
+    .ha-serial-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .ha-serial-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-2);
+      margin-bottom: 4px;
+    }
+    .ha-serial-input-wrap {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .ha-serial-input-wrap input {
+      flex: 1;
+      min-width: 0;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: monospace;
+      background: #fff;
+    }
+    .ha-serial-input-wrap .btn {
+      width: auto;
+      flex-shrink: 0;
+      padding: 9px 14px;
+      font-size: 13px;
+    }
+    .ha-serial-ok { color: var(--green); font-size: 18px; display: none; }
+
+    /* ── HA two-device card layout ── */
+    .ha-device-card {
+      border: 1.5px solid #dde3ef;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .ha-device-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      background: #f0f4fb;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .ha-device-number {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: #003057;
+      color: #fff;
+      border-radius: 4px;
+      padding: 3px 9px;
+      flex-shrink: 0;
+    }
+    .ha-device-sn-text {
+      font-family: monospace;
+      font-size: 12px;
+      color: #334155;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ha-device-status {
+      font-size: 12px;
+      color: #16a34a;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .ha-device-card-body { padding: 0 12px 12px; }
+    .ha-serial2-confirm {
+      padding: 10px 12px 12px;
+      background: #fffbeb;
+      border-bottom: 1px solid #fde68a;
+    }
+    .ha-serial2-confirm .ha-serial-label { margin-bottom: 6px; color: #92400e; }
+    .ha-setup-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px;
+      border: 1.5px solid #dde3ef;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+    .port-cable-tip {
+      font-size: 11px;
+      color: #0070d2;
+      margin-top: 3px;
+      font-weight: 500;
+    }
+    .port-cable-tip.cc { color: #7c3aed; }
+
+    /* ── HA cabling checklist ── */
+    .ha-checklist-wrap {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 14px;
+    }
+    .ha-checklist-hdr {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 10px;
+    }
+    .ha-checklist-line {
+      font-size: 13px;
+      color: var(--text-1);
+      padding: 6px 0;
+      border-bottom: 1px solid #e8eaf0;
+      line-height: 1.45;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ha-checklist-line:last-child { border-bottom: none; }
+    .ha-cl-icon { font-size: 15px; flex-shrink: 0; }
+    .ha-cl-role { font-size: 10px; font-weight: 700; text-transform: uppercase;
+      padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+    .ha-cl-role.wan { background: #dbeafe; color: #1e40af; }
+    .ha-cl-role.lan { background: #dcfce7; color: #166534; }
+    .ha-cl-role.ha  { background: #fef3c7; color: #92400e; }
+    .ha-cl-role.bypass { background: #ede9fe; color: #5b21b6; }
+
+    /* ── Port validation card (success screen) ── */
+    .port-val-card {
+      text-align: left;
+      margin: 16px auto;
+      max-width: 420px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .port-val-hdr {
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #666;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .port-val-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .port-val-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .port-val-dot.pass { background: var(--green); }
+    .port-val-dot.fail { background: var(--red); }
+    .port-val-dot.unknown { background: #94a3b8; }
+    .port-val-name { font-weight: 600; min-width: 60px; }
+    .port-val-circuit { color: var(--text-2); font-size: 12px; flex: 1; }
+    .port-val-tip {
+      font-size: 11px;
+      color: #b45309;
+      background: #fef3c7;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin: 0 16px 10px;
+      line-height: 1.45;
+    }
+    .port-val-recheck {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      background: #f0f2f5;
+      border: none;
+      border-top: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--blue);
+    }
+    .port-val-recheck:active { background: #e2e8f0; }
+
+    /* ── HA roles card (success screen) ── */
+    .ha-roles-card {
+      text-align: left;
+      margin: 16px auto;
+      max-width: 420px;
+      border: 1.5px solid #93c5fd;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #eff6ff;
+    }
+    .ha-roles-hdr {
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #1e40af;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      border-bottom: 1px solid #bfdbfe;
+    }
+    .ha-role-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      font-size: 13px;
+      border-top: 1px solid #bfdbfe;
+    }
+    .ha-role-row:first-of-type { border-top: none; }
+    .ha-role-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 10px; flex-shrink: 0;
+    }
+    .ha-role-badge.active { background: #dcfce7; color: #166534; }
+    .ha-role-badge.backup { background: #fef3c7; color: #92400e; }
+    .ha-role-badge.unknown { background: #f1f5f9; color: #64748b; }
+    .ha-role-sn { font-family: monospace; font-size: 12px; color: var(--text-2); }
+    .ha-backup-note {
+      font-size: 11px; color: #92400e; background: #fef3c7;
+      padding: 8px 16px; border-top: 1px solid #bfdbfe;
+      line-height: 1.45;
+    }
   </style>
 </head>
 <body>
@@ -1348,14 +1631,78 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- SCREEN: HA SETUP (scan both devices before port layout)    -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="screen-ha-setup" class="screen">
+      <div class="card">
+        <div class="card-label">HA Site — Scan Both Devices</div>
+
+        <div class="ha-mode-banner" style="margin-bottom:18px;">
+          <div class="ha-icon">🔁</div>
+          <div>
+            <div class="ha-title">HA Site Detected — 2 ION Devices Required</div>
+            <div class="ha-sub">Scan or enter both serial numbers before viewing the cable layout.</div>
+          </div>
+        </div>
+
+        <!-- Device 1 row -->
+        <div class="ha-setup-row">
+          <span class="ha-device-number">Device 1</span>
+          <span id="ha-setup-sn1" class="ha-device-sn-text">—</span>
+          <span class="ha-device-status">✅ Scanned</span>
+        </div>
+
+        <!-- Device 2 row -->
+        <div class="ha-setup-row" style="margin-top:10px;">
+          <span class="ha-device-number" style="background:#475569;">Device 2</span>
+          <div style="flex:1;min-width:0;">
+            <div class="ha-serial-label" style="margin-bottom:6px;color:#92400e;">
+              Walk to the second ION box and scan or enter its serial number:
+            </div>
+            <div class="ha-serial-input-wrap">
+              <input type="text" id="ha-serial2-input" placeholder="XXXXXX-XXXXXX-XXXX"
+                oninput="onHaSetupSn2Input()" autocomplete="off" autocapitalize="characters" />
+              <button class="btn btn-outline" onclick="openScannerFor('ha2')">📷 Scan</button>
+              <span class="ha-serial-ok" id="ha-setup-sn2-ok" style="display:none;">✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-green mt-16" id="ha-setup-continue-btn"
+        onclick="proceedToHaPortLayout()" disabled>
+        View Cable Layout →
+      </button>
+
+      <button class="back-link" onclick="showScreen('screen-sites')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Sites
+      </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
     <!-- SCREEN: PORT INFO (shown after site selection)             -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <div id="screen-ports" class="screen">
       <div class="card">
         <div class="card-label">Cable Verification — Port Layout</div>
-        <p style="font-size:13px; color:var(--text-2); margin-bottom:16px; line-height:1.5;">
+
+        <!-- HA mode banner (shown only in HA mode) -->
+        <div id="ha-mode-banner" class="ha-mode-banner" style="display:none;">
+          <div class="ha-icon">🔁</div>
+          <div>
+            <div class="ha-title">HA Site — Dual Device Installation</div>
+            <div class="ha-sub">Connect cables on both ION devices as shown below.</div>
+          </div>
+        </div>
+
+        <!-- Single-device intro (hidden in HA mode) -->
+        <p id="ports-single-intro" style="font-size:13px; color:var(--text-2); margin-bottom:16px; line-height:1.5;">
           Verify that the WAN cables are connected to the correct ports before continuing.
         </p>
+
+        <!-- HA: second serial input — now rendered inside device 2 card via JS -->
+        <div id="ha-serial2-section" style="display:none;"></div>
 
         <div id="ports-content">
           <div class="ports-loading">
@@ -1363,6 +1710,9 @@
             Loading port configuration…
           </div>
         </div>
+
+        <!-- HA cabling checklist (generated after both serials are known) -->
+        <div id="ha-checklist-section" style="display:none;"></div>
 
         <div class="checklist-note" id="ports-checklist-note" style="display:none;">
           ⚠️ Confirm all WAN cables are connected and LAN cables are plugged in before proceeding.
@@ -1494,6 +1844,54 @@
         <div class="elapsed" id="elapsed-timer"></div>
       </div>
 
+      <!-- Installation Report Screen — combined network + port report shown after job completes -->
+      <div class="complete-screen" id="report-screen">
+
+        <!-- Loading state -->
+        <div id="report-loading">
+          <div class="big-icon checking animate">
+            <svg viewBox="0 0 24 24" fill="none" width="44" height="44">
+              <circle cx="12" cy="12" r="10" stroke="#0070d2" stroke-width="2.5"/>
+              <path d="M12 7v5l3 3" stroke="#0070d2" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="complete-title" style="font-size:18px;">Running Final Checks…</div>
+          <div class="complete-subtitle">Verifying port status, please wait.</div>
+        </div>
+
+        <!-- Results state (populated by JS) -->
+        <div id="report-results" style="display:none;width:100%;text-align:left;">
+          <div style="text-align:center;margin-bottom:4px;">
+            <div class="big-icon" id="report-icon" style="display:inline-flex;"></div>
+            <div class="complete-title" id="report-title" style="font-size:18px;"></div>
+            <div class="complete-subtitle" id="report-subtitle"></div>
+          </div>
+
+          <!-- Network Connectivity card -->
+          <div id="report-net-card" class="net-status-card" style="display:none;width:100%;max-width:460px;margin:8px auto 10px;">
+            <div class="card-label" style="padding:12px 16px;font-size:12px;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Network Connectivity</div>
+            <div id="report-net-body"></div>
+          </div>
+
+          <!-- Port Status card -->
+          <div id="report-port-card" class="port-val-card" style="display:none;width:100%;max-width:460px;margin:0 auto;">
+            <div class="port-val-hdr">
+              <span>Port Status</span>
+              <span id="report-port-summary" style="font-size:12px;font-weight:600;"></span>
+            </div>
+            <div id="report-port-body"></div>
+          </div>
+        </div>
+
+        <!-- Action buttons (shown after results load) -->
+        <div id="report-actions" style="display:none;flex-direction:column;gap:10px;width:100%;max-width:320px;margin-top:20px;">
+          <button class="btn btn-outline" id="report-recheck-btn" onclick="recheckReport()">↺ Recheck</button>
+          <button class="btn btn-primary" id="report-complete-btn" onclick="transitionToComplete()" style="display:none;">✓ Complete Installation</button>
+          <button class="btn btn-primary" id="report-ignore-btn" onclick="transitionToComplete()" style="display:none;background:var(--orange,#ea580c);">⚠️ Ignore &amp; Complete</button>
+        </div>
+
+      </div>
+
       <!-- Complete state — success -->
       <div class="complete-screen" id="complete-success">
         <div class="big-icon success animate">
@@ -1504,13 +1902,15 @@
         <div class="complete-title">Installation Complete!</div>
         <div class="complete-subtitle" id="success-site-line">Device is now active.</div>
         <div class="complete-time" id="success-time"></div>
-        <!-- Network status summary persists here on success -->
-        <div id="net-status-card-success" class="net-status-card" style="display:none; text-align:left; margin:16px auto; max-width:420px;">
-          <div class="card-label" style="padding:12px 16px; font-size:12px; color:#666; font-weight:600; text-transform:uppercase; letter-spacing:.04em;">Network Status</div>
-          <div id="net-table-body-success"></div>
+        <!-- HA roles card -->
+        <div id="ha-roles-card" class="ha-roles-card" style="display:none;">
+          <div class="ha-roles-hdr">🔁 HA Device Roles</div>
+          <div id="ha-roles-body"></div>
+          <div class="ha-backup-note" id="ha-backup-note" style="display:none;">
+            ℹ️ Backup device WAN/LAN ports DOWN is expected — device is in standby mode. Only the HA heartbeat port should be UP.
+          </div>
         </div>
         <button class="btn btn-primary" onclick="resetApp()">Install Another Device</button>
-        <button class="btn btn-outline" id="recheck-btn-success" onclick="recheckNetwork()" style="margin-top:10px;display:none;">Re-check Network Connectivity</button>
       </div>
 
       <!-- Failed state -->
@@ -1540,8 +1940,15 @@
 <!-- Scanner Overlay -->
 <div id="scanner-overlay">
   <p>Point camera at the serial number barcode</p>
-  <div id="reader"></div>
-  <div id="scan-confirm" style="display:none; background:#fff; border-radius:10px; padding:14px 16px; margin:12px 0; width:100%; max-width:320px; text-align:center;">
+  <div id="scan-hint">Hold steady · Keep barcode fully in frame · Move closer if needed</div>
+  <video id="reader-video" autoplay playsinline muted></video>
+  <div id="scanner-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;width:100%;max-width:380px;text-align:center;">
+    <div style="font-size:13px;font-weight:600;color:#dc2626;margin-bottom:4px;">📵 Camera not accessible</div>
+    <div id="scanner-error-msg" style="font-size:12px;color:#7f1d1d;margin-bottom:10px;"></div>
+    <div style="font-size:11px;color:#991b1b;">Try: Settings → Browser → Camera → Allow for this site</div>
+  </div>
+  <button id="torch-btn" onclick="toggleTorch()">🔦 Turn on flashlight</button>
+  <div id="scan-confirm" style="display:none; background:#fff; border-radius:10px; padding:14px 16px; margin:4px 0; width:100%; max-width:380px; text-align:center;">
     <div style="font-size:12px; color:#666; margin-bottom:4px;">Scanned serial:</div>
     <div id="scan-preview" style="font-family:monospace; font-size:16px; font-weight:700; color:#003057; word-break:break-all; margin-bottom:12px;"></div>
     <div style="display:flex; gap:8px; justify-content:center;">
@@ -1569,9 +1976,14 @@ let pollTimer = null;
 let elapsedTimer = null;
 let startTime = null;
 let allShells = [];
-let html5QrCode = null;
+let _scanStream = null;
+let _scanRaf = null;
 let locateResult = null;   // response from POST /api/locate
 let selectedSite = null;   // {id, name, shell_id, shell_name, distance_km}
+let haMode = false;        // true when site has 2+ unclaimed shells
+let haShells = [];         // [{shell_id, serial_number, ports}] for HA checklist
+let haSerials = ['', ''];  // [sn1, sn2] — sn1 = from main serial-input
+let _scanTarget = 'main';  // 'main' | 'ha2' — which input scanner populates
 
 // Fix admin link for sasesensai prefix
 document.getElementById('admin-link').href = BASE + '/admin';
@@ -1597,62 +2009,254 @@ function showToast(msg) {
 
 // ── Scanner ────────────────────────────────────────────────────────────────
 let _pendingScan = null;
+let _pendingCompleteJob = null;  // set when port check screen is shown, consumed by transitionToComplete
+let _torchOn = false;
+let _activeTrack = null;
 
-function openScanner() {
+function _stopScanStream() {
+  if (_scanRaf) { cancelAnimationFrame(_scanRaf); _scanRaf = null; }
+  if (_scanStream) { _scanStream.getTracks().forEach(t => t.stop()); _scanStream = null; }
+  _activeTrack = null;
+}
+
+async function openScanner() {
   document.getElementById('scanner-overlay').classList.add('open');
   document.getElementById('scan-confirm').style.display = 'none';
+  document.getElementById('torch-btn').style.display = 'none';
+  document.getElementById('torch-btn').classList.remove('on');
+  document.getElementById('scanner-error').style.display = 'none';
   _pendingScan = null;
+  _torchOn = false;
+  _stopScanStream();
 
-  // Only Code 128 / Code 39 — excludes EAN/UPC which encode shipping barcodes
-  const formats = [
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39,
-    Html5QrcodeSupportedFormats.CODE_93,
-    Html5QrcodeSupportedFormats.CODABAR,
-    Html5QrcodeSupportedFormats.ITF,
-  ];
+  // Acquire rear camera
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+  } catch {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } });
+    } catch (err) {
+      const msg = err?.message || String(err) || 'Camera not accessible';
+      document.getElementById('scanner-error-msg').textContent = msg;
+      document.getElementById('scanner-error').style.display = '';
+      return;
+    }
+  }
 
-  // Serial number pattern: XXXXXX-XXXXXX-XXXX (digits and dashes)
-  const SERIAL_PATTERN = /^\d{6}-\d{6}-\d{4}$/;
+  _scanStream = stream;
+  const video = document.getElementById('reader-video');
+  video.srcObject = stream;
+  await video.play().catch(() => {});
 
-  html5QrCode = new Html5Qrcode('reader', { formatsToSupport: formats });
-  html5QrCode.start(
-    { facingMode: 'environment' },
-    { fps: 15, qrbox: { width: 320, height: 130 }, aspectRatio: 1.777 },
-    (decodedText) => {
-      const raw = decodedText.trim();
-      if (!SERIAL_PATTERN.test(raw)) return;
-      html5QrCode.pause(true);
-      _pendingScan = decodedText.trim();
-      document.getElementById('scan-preview').textContent = _pendingScan;
-      document.getElementById('scan-confirm').style.display = 'block';
-    },
-    () => {}
-  ).catch(() => {
-    closeScanner();
-    showToast('Camera not available — enter serial manually');
-  });
+  // Torch
+  const tracks = stream.getVideoTracks();
+  if (tracks.length > 0) {
+    _activeTrack = tracks[0];
+    const caps = _activeTrack.getCapabilities ? _activeTrack.getCapabilities() : {};
+    if (caps.torch) document.getElementById('torch-btn').style.display = '';
+  }
+
+  // ImageCapture.grabFrame() bypasses the Android Chrome GPU compositor bug where
+  // canvas.drawImage(video) produces black frames even though video renders on screen.
+  let imgCapture = null;
+  if (_activeTrack && 'ImageCapture' in window) {
+    try { imgCapture = new ImageCapture(_activeTrack); } catch {}
+  }
+
+  if (window.ZXing) {
+    _startZXing(video, imgCapture);
+  } else if ('BarcodeDetector' in window) {
+    _startBarcodeDetector(video);
+  } else {
+    document.getElementById('scanner-error-msg').textContent = 'Barcode library not loaded. Check network.';
+    document.getElementById('scanner-error').style.display = '';
+  }
+}
+
+async function _startBarcodeDetector(video) {
+  const want = ['code_128', 'code_39', 'code_93', 'codabar', 'itf', 'qr_code', 'pdf417', 'data_matrix'];
+  let formats = want;
+  try {
+    const supported = await BarcodeDetector.getSupportedFormats();
+    const filtered = want.filter(f => supported.includes(f));
+    if (filtered.length > 0) formats = filtered;
+  } catch {}
+
+  let detector;
+  try {
+    detector = new BarcodeDetector({ formats });
+  } catch {
+    try { detector = new BarcodeDetector(); } catch (e) {
+      _startZXing(video); return;
+    }
+  }
+
+  // Wait for video to produce frames
+  let waited = 0;
+  while (!video.videoWidth && _scanStream && waited < 3000) {
+    await new Promise(r => setTimeout(r, 100));
+    waited += 100;
+  }
+  if (!_scanStream) return;
+
+  // Detect from a canvas snapshot — passing video element directly to detect()
+  // silently fails on many Android Chrome versions when the frame isn't yet rendered.
+  const snapCanvas = document.createElement('canvas');
+  const snapCtx = snapCanvas.getContext('2d');
+
+  const tick = async () => {
+    if (!_scanStream) return;
+    try {
+      if (video.videoWidth && video.videoHeight) {
+        if (snapCanvas.width !== video.videoWidth) { snapCanvas.width = video.videoWidth; snapCanvas.height = video.videoHeight; }
+        snapCtx.drawImage(video, 0, 0);
+        const results = await detector.detect(snapCanvas);
+        if (!_scanStream) return;
+        if (results.length > 0) {
+          const val = results[0].rawValue.trim();
+          if (val.length >= 5) { _onBarcodeDetected(val); return; }
+        }
+      }
+    } catch {}
+    if (_scanStream) _scanRaf = requestAnimationFrame(tick);
+  };
+  _scanRaf = requestAnimationFrame(tick);
+}
+
+function _startZXing(video, imgCapture) {
+  if (!window.ZXing) {
+    document.getElementById('scanner-error-msg').textContent = 'Barcode library failed to load. Check network.';
+    document.getElementById('scanner-error').style.display = '';
+    return;
+  }
+
+  const hints = new Map();
+  hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+  const decoder = new ZXing.MultiFormatReader();
+  decoder.setHints(hints);
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const rCanvas = document.createElement('canvas');
+  const rCtx = rCanvas.getContext('2d', { willReadFrequently: true });
+  let frameCount = 0;
+  let busy = false;
+
+  const tryDecode = (c) => {
+    const lum = new ZXing.HTMLCanvasElementLuminanceSource(c);
+    const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
+    return decoder.decode(bmp).getText().trim();
+  };
+
+  const drawAndDecode = (source, w, h) => {
+    // Scale down to max 1280px on the longer side — ZXing is much faster on smaller canvases,
+    // and grabFrame() on Android can return 4K+ native resolution.
+    const maxDim = 1280;
+    const scale = Math.min(1, maxDim / Math.max(w, h));
+    const sw = Math.round(w * scale);
+    const sh = Math.round(h * scale);
+
+    canvas.width = sw; canvas.height = sh;
+    ctx.drawImage(source, 0, 0, sw, sh);
+
+    // Try native orientation first, then rotated 90°
+    try {
+      const val = tryDecode(canvas);
+      if (val.length >= 5) return val;
+    } catch {}
+
+    rCanvas.width = sh; rCanvas.height = sw;
+    rCtx.save();
+    rCtx.translate(sh / 2, sw / 2);
+    rCtx.rotate(Math.PI / 2);
+    rCtx.drawImage(canvas, -sw / 2, -sh / 2);
+    rCtx.restore();
+    try {
+      const val = tryDecode(rCanvas);
+      if (val.length >= 5) return val;
+    } catch {}
+
+    return null;
+  };
+
+  const tick = async () => {
+    if (!_scanStream) return;
+    if (busy) { _scanRaf = requestAnimationFrame(tick); return; }
+    busy = true;
+    frameCount++;
+
+    try {
+      let val = null;
+      if (imgCapture) {
+        // grabFrame() pulls directly from camera hardware, bypassing GPU compositor
+        const bitmap = await imgCapture.grabFrame();
+        val = drawAndDecode(bitmap, bitmap.width, bitmap.height);
+        bitmap.close();
+      } else if (video.videoWidth) {
+        val = drawAndDecode(video, video.videoWidth, video.videoHeight);
+      }
+      if (val) { _onBarcodeDetected(val); return; }
+    } catch {}
+
+    busy = false;
+    if (_scanStream) _scanRaf = requestAnimationFrame(tick);
+  };
+
+  _scanRaf = requestAnimationFrame(tick);
+}
+
+function _onBarcodeDetected(val) {
+  _stopScanStream();
+  _pendingScan = val;
+  document.getElementById('scan-preview').textContent = val;
+  document.getElementById('scan-confirm').style.display = 'block';
+}
+
+async function toggleTorch() {
+  if (!_activeTrack) return;
+  try {
+    _torchOn = !_torchOn;
+    await _activeTrack.applyConstraints({ advanced: [{ torch: _torchOn }] });
+    const btn = document.getElementById('torch-btn');
+    btn.textContent = _torchOn ? '🔦 Flashlight ON' : '🔦 Turn on flashlight';
+    btn.classList.toggle('on', _torchOn);
+  } catch {
+    showToast('Flashlight not supported on this device');
+  }
+}
+
+function openScannerFor(target) {
+  _scanTarget = target || 'main';
+  openScanner();
 }
 
 function acceptScan() {
-  document.getElementById('serial-input').value = _pendingScan || '';
+  const val = _pendingScan || '';
+  if (_scanTarget === 'ha2') {
+    document.getElementById('ha-serial2-input').value = val;
+    onHaSetupSn2Input();
+  } else {
+    document.getElementById('serial-input').value = val;
+  }
   closeScanner();
 }
 
 function rejectScan() {
   _pendingScan = null;
   document.getElementById('scan-confirm').style.display = 'none';
-  if (html5QrCode) html5QrCode.resume();
+  openScanner();
 }
 
 function closeScanner() {
   document.getElementById('scanner-overlay').classList.remove('open');
   document.getElementById('scan-confirm').style.display = 'none';
   _pendingScan = null;
-  if (html5QrCode) {
-    html5QrCode.stop().catch(() => {});
-    html5QrCode = null;
+  if (_torchOn && _activeTrack) {
+    _activeTrack.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
   }
+  _torchOn = false;
+  _stopScanStream();
 }
 
 // ── Location-based flow ────────────────────────────────────────────────────
@@ -1893,6 +2497,53 @@ async function continueWithSite() {
   btn.textContent = 'Creating job…';
 
   try {
+    // Check if this is an HA site (2+ unclaimed shells)
+    const availShells = selectedSite.available_shells ?? 1;
+    if (availShells >= 2) {
+      // HA flow: fetch shells-with-ports, then show HA port screen before creating job
+      btn.textContent = 'Detecting HA…';
+      const shellsRes = await fetch(BASE + `/api/sites/${selectedSite.id}/shells-with-ports`);
+      const shellsData = await shellsRes.json();
+      if (shellsData.ok && shellsData.ha_site) {
+        haMode = true;
+        haShells = shellsData.shells || [];
+        haSerials[0] = serial;
+        // Assign first shell to this job, use it as current job placeholder
+        const firstShell = haShells[0] || {};
+        const res = await fetch(BASE + '/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            serial_number: serial,
+            site_id: selectedSite.id,
+            site_name: selectedSite.name,
+            element_shell_id: firstShell.shell_id || selectedSite.shell_id || undefined,
+            element_id: selectedSite.shell_element_id || undefined,
+            element_name: selectedSite.shell_name || undefined,
+          })
+        });
+        const data = await res.json();
+        if (res.status === 409 && data.conflict_job) {
+          conflictJob = data.conflict_job;
+          _handleConflict(conflictJob, btn);
+          return;
+        }
+        if (!res.ok) {
+          showToast(data.error || 'Could not create job.');
+          btn.disabled = false; btn.textContent = '▶ Continue with Selected Site'; return;
+        }
+        document.getElementById('conflict-card').style.display = 'none';
+        currentJob = data.job;
+        showScreen('screen-ha-setup');
+        loadHaSetupScreen(serial);
+        return;
+      }
+      // fallback: treat as single device if HA detection inconclusive
+      haMode = false;
+    }
+
+    // Single-device flow
+    haMode = false;
     const res = await fetch(BASE + '/api/jobs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1900,24 +2551,15 @@ async function continueWithSite() {
         serial_number: serial,
         site_id: selectedSite.id,
         site_name: selectedSite.name,
-        element_shell_id: selectedSite.shell_id || undefined,          // shell's own ID — for claim + port APIs
-        element_id: selectedSite.shell_element_id || undefined,        // actual element entity ID — for monitoring APIs
+        element_shell_id: selectedSite.shell_id || undefined,
+        element_id: selectedSite.shell_element_id || undefined,
         element_name: selectedSite.shell_name || undefined,
       })
     });
     const data = await res.json();
     if (res.status === 409 && data.conflict_job) {
       conflictJob = data.conflict_job;
-      const j = conflictJob;
-      const statusLabels = { pending:'Pending', searching:'Searching', waiting_online:'Coming Online',
-        assigning:'Claiming', provisioning:'Provisioning', upgrading:'Upgrading',
-        version_check:'Verifying', fabric_check:'Network Check', assigned:'Installed', failed:'Failed' };
-      const created = j.created_at ? new Date(j.created_at).toLocaleTimeString() : '—';
-      document.getElementById('conflict-detail').textContent =
-        `Status: ${statusLabels[j.status] || j.status} · Site: ${j.site_name || '—'} · Shell: ${j.element_name || '—'} · Started: ${created}`;
-      document.getElementById('conflict-card').style.display = '';
-      btn.disabled = false;
-      btn.textContent = '▶ Continue with Selected Site';
+      _handleConflict(conflictJob, btn);
       return;
     }
     if (!res.ok) {
@@ -1936,6 +2578,19 @@ async function continueWithSite() {
     btn.disabled = false;
     btn.textContent = '▶ Continue with Selected Site';
   }
+}
+
+function _handleConflict(j, btn) {
+  conflictJob = j;
+  const statusLabels = { pending:'Pending', searching:'Searching', waiting_online:'Coming Online',
+    assigning:'Claiming', provisioning:'Provisioning', upgrading:'Upgrading',
+    version_check:'Verifying', fabric_check:'Network Check', assigned:'Installed', failed:'Failed' };
+  const created = j.created_at ? new Date(j.created_at).toLocaleTimeString() : '—';
+  document.getElementById('conflict-detail').textContent =
+    `Status: ${statusLabels[j.status] || j.status} · Site: ${j.site_name || '—'} · Shell: ${j.element_name || '—'} · Started: ${created}`;
+  document.getElementById('conflict-card').style.display = '';
+  btn.disabled = false;
+  btn.textContent = '▶ Continue with Selected Site';
 }
 
 function joinConflictJob() {
@@ -1977,6 +2632,12 @@ async function clearConflictJob() {
 }
 
 async function loadPortsScreen(jobId) {
+  // Ensure HA UI is hidden for single-device flow
+  document.getElementById('ha-mode-banner').style.display = 'none';
+  document.getElementById('ha-serial2-section').style.display = 'none';
+  document.getElementById('ha-checklist-section').style.display = 'none';
+  document.getElementById('ports-single-intro').style.display = '';
+
   const container = document.getElementById('ports-content');
   const note = document.getElementById('ports-checklist-note');
   container.innerHTML = '<div class="ports-loading"><div class="locate-ring" style="width:40px;height:40px;border-width:3px;margin:0 auto 12px;"></div>Loading port configuration…</div>';
@@ -1993,6 +2654,338 @@ async function loadPortsScreen(jobId) {
     container.innerHTML = '<div class="ports-empty">Could not load port configuration. You can still continue.</div>';
     note.style.display = 'block';
   }
+}
+
+function loadPortsScreenHA(sn1) {
+  document.getElementById('ha-mode-banner').style.display = '';
+  document.getElementById('ha-serial2-section').style.display = 'none';
+  document.getElementById('ports-single-intro').style.display = 'none';
+  document.getElementById('ha-checklist-section').style.display = 'none';
+  document.getElementById('ports-checklist-note').style.display = '';
+
+  haSerials[0] = sn1;
+  const d1 = haShells[0] || {};
+  const d2 = haShells[1] || {};
+  const pc1 = d1.ports || {};
+  const pc2 = d2.ports || {};
+  const cc = computeCrossConnects(pc1, pc2);
+
+  document.getElementById('ports-content').innerHTML = buildTwoDeviceLayout(sn1, pc1, pc2, cc);
+}
+
+function loadHaSetupScreen(sn1) {
+  haSerials[0] = sn1;
+  haSerials[1] = '';
+  document.getElementById('ha-setup-sn1').textContent = `S/N: ${sn1}`;
+  document.getElementById('ha-serial2-input').value = '';
+  document.getElementById('ha-setup-sn2-ok').style.display = 'none';
+  document.getElementById('ha-setup-continue-btn').disabled = true;
+}
+
+function onHaSetupSn2Input() {
+  const sn2 = document.getElementById('ha-serial2-input').value.trim();
+  const ok = sn2.length >= 5;
+  document.getElementById('ha-setup-sn2-ok').style.display = ok ? '' : 'none';
+  document.getElementById('ha-setup-continue-btn').disabled = !ok;
+  if (ok) haSerials[1] = sn2;
+}
+
+function proceedToHaPortLayout() {
+  showScreen('screen-ports');
+  loadPortsScreenHA(haSerials[0]);
+}
+
+function computeCrossConnects(pc1, pc2) {
+  const d1LanToPeerWan = {};   // bp.lan_port (D1) → matching wan_port name on D2
+  const d2LanToPeerWan = {};   // bp.lan_port (D2) → matching wan_port name on D1
+  const d1WanIsCrossTarget = new Set();
+  const d2WanIsCrossTarget = new Set();
+  const haPairs = [];
+
+  (pc1.bypass_pairs || []).forEach(bp => {
+    const peer = (pc2.wan_ports || []).find(p => p.circuit && p.circuit === bp.circuit);
+    if (peer) { d1LanToPeerWan[bp.lan_port] = peer.name; d2WanIsCrossTarget.add(peer.name); }
+  });
+  (pc2.bypass_pairs || []).forEach(bp => {
+    const peer = (pc1.wan_ports || []).find(p => p.circuit && p.circuit === bp.circuit);
+    if (peer) { d2LanToPeerWan[bp.lan_port] = peer.name; d1WanIsCrossTarget.add(peer.name); }
+  });
+
+  const haP1 = pc1.ha_ports || [], haP2 = pc2.ha_ports || [];
+  for (let i = 0; i < Math.max(haP1.length, haP2.length); i++) {
+    haPairs.push({ p1: haP1[i]?.name, p2: haP2[i]?.name });
+  }
+  return { d1LanToPeerWan, d2LanToPeerWan, d1WanIsCrossTarget, d2WanIsCrossTarget, haPairs };
+}
+
+function buildTwoDeviceLayout(sn1, pc1, pc2, cc) {
+  const d2Sn = haSerials[1] || (haShells[1] || {}).serial_number || '';
+  return buildDeviceCard(1, sn1, true, pc1, cc) + buildDeviceCard(2, d2Sn, true, pc2, cc);
+}
+
+function buildDeviceCard(devNum, sn, confirmed, pc, cc) {
+  const isD1 = devNum === 1;
+  const peerNum = isD1 ? 2 : 1;
+  const lanToPeerWan = isD1 ? cc.d1LanToPeerWan : cc.d2LanToPeerWan;
+  const wanIsCross = isD1 ? cc.d1WanIsCrossTarget : cc.d2WanIsCrossTarget;
+
+  const statusBadge = confirmed
+    ? `<span class="ha-device-status">✅ Scanned</span>`
+    : `<span class="ha-device-status" style="color:#92400e;" id="ha-d2-status">⚠️ Confirm below</span>`;
+
+  const snDisplay = sn
+    ? `<span class="ha-device-sn-text">S/N: ${esc(sn)}</span>`
+    : `<span class="ha-device-sn-text" id="ha-d2-sn-label" style="color:#94a3b8;">S/N: pending scan</span>`;
+
+  const serialConfirm = !confirmed ? `
+    <div class="ha-serial2-confirm">
+      <div class="ha-serial-label">Scan or enter serial number to confirm this device:</div>
+      <div class="ha-serial-input-wrap">
+        <input type="text" id="ha-serial2-input" placeholder="XXXXXX-XXXXXX-XXXX"
+          oninput="onHaSerial2Input()" autocomplete="off" autocapitalize="characters" />
+        <button class="btn btn-outline" onclick="openScannerFor('ha2')">📷 Scan</button>
+        <span class="ha-serial-ok" id="ha-sn2-ok">✓</span>
+      </div>
+    </div>` : '';
+
+  let portsHtml = '';
+
+  // ── Bypass pairs ──────────────────────────────────────────────────────────
+  if ((pc.bypass_pairs || []).length) {
+    portsHtml += `<div class="ports-section-hdr" style="margin-top:14px;">Bypass Pair — Inline Protection</div><div class="port-list">`;
+    pc.bypass_pairs.forEach(bp => {
+      const circuit = bp.circuit ? `<div class="port-circuit">🌐 ${esc(bp.circuit)}</div>` : '';
+      const peerWanPort = lanToPeerWan[bp.lan_port];
+      const crossDesc = peerWanPort
+        ? `Cross-connect cable → Device ${peerNum} Port ${esc(peerWanPort)}`
+        : `Cross-connect cable to peer ION WAN port`;
+      portsHtml += `
+        <div class="port-item wan">
+          <div class="port-icon">🔌</div>
+          <div class="port-info">
+            <div class="port-name">Port ${esc(bp.wan_port)}</div>
+            ${circuit}
+            <div class="port-cable-tip">Connect ISP cable here (WAN side of bypass)</div>
+          </div>
+          <span class="port-badge wan-badge">WAN</span>
+        </div>
+        <div class="port-item" style="border-left:3px solid #dd8aff;">
+          <div class="port-icon">⚡</div>
+          <div class="port-info">
+            <div class="port-name">Port ${esc(bp.lan_port)}</div>
+            <div class="port-cable-tip cc">${crossDesc}</div>
+          </div>
+          <span class="port-badge" style="background:#ede9fe;color:#5b21b6;">Bypass</span>
+        </div>`;
+    });
+    portsHtml += '</div>';
+  }
+
+  // ── Cross-connect receive ports (WAN ports that are cross-connect endpoints) ──
+  const crossPorts = (pc.wan_ports || []).filter(p => wanIsCross.has(p.name));
+  if (crossPorts.length) {
+    portsHtml += `<div class="ports-section-hdr" style="margin-top:14px;">Cross-Connect Receive — From Peer ION</div><div class="port-list">`;
+    crossPorts.forEach(p => {
+      const fromLanPort = Object.entries(isD1 ? cc.d2LanToPeerWan : cc.d1LanToPeerWan).find(([lan, wan]) => wan === p.name)?.[0];
+      const circuit = p.circuit ? `<div class="port-circuit">🌐 ${esc(p.circuit)}</div>` : '';
+      const fromDesc = fromLanPort
+        ? `Receives cross-connect from Device ${peerNum} Port ${esc(fromLanPort)}`
+        : `Receives cross-connect from peer ION bypass port`;
+      portsHtml += `
+        <div class="port-item" style="border-left:3px solid #dd8aff;">
+          <div class="port-icon">⚡</div>
+          <div class="port-info">
+            <div class="port-name">Port ${esc(p.name)}</div>
+            ${circuit}
+            <div class="port-cable-tip cc">${fromDesc}</div>
+          </div>
+          <span class="port-badge" style="background:#ede9fe;color:#5b21b6;">Cross-connect</span>
+        </div>`;
+    });
+    portsHtml += '</div>';
+  }
+
+  // ── Regular WAN ports (ISP, not cross-connect) ────────────────────────────
+  // Suppressed in HA bypass topology — ISP connectivity is already shown via
+  // the Bypass Pair WAN side and Cross-Connect Receive sections.
+  const hasBypassPairs = (pc.bypass_pairs || []).length > 0;
+  const regularWanPorts = (pc.wan_ports || []).filter(p => !wanIsCross.has(p.name));
+  if (!hasBypassPairs && regularWanPorts.length) {
+    portsHtml += `<div class="ports-section-hdr" style="margin-top:14px;">WAN Ports — Connect ISP Cables Here</div><div class="port-list">`;
+    regularWanPorts.forEach(p => {
+      const circuit = p.circuit ? `<div class="port-circuit">🌐 ${esc(p.circuit)}</div>` : '';
+      portsHtml += `
+        <div class="port-item wan">
+          <div class="port-icon">🔌</div>
+          <div class="port-info">
+            <div class="port-name">Port ${esc(p.name)}</div>
+            ${circuit}
+            <div class="port-cable-tip">Connect ISP cable here</div>
+          </div>
+          <span class="port-badge wan-badge">WAN</span>
+        </div>`;
+    });
+    portsHtml += '</div>';
+  }
+
+  // ── HA heartbeat ports ─────────────────────────────────────────────────────
+  if ((pc.ha_ports || []).length) {
+    portsHtml += `<div class="ports-section-hdr" style="margin-top:14px;">HA Ports</div><div class="port-list">`;
+    pc.ha_ports.forEach(p => {
+      const pair = cc.haPairs.find(h => isD1 ? h.p1 === p.name : h.p2 === p.name);
+      const peerPort = pair ? (isD1 ? pair.p2 : pair.p1) : null;
+      const haDesc = peerPort
+        ? `HA heartbeat cable → Device ${peerNum} Port ${esc(peerPort)}`
+        : `HA heartbeat cable to peer ION device`;
+      portsHtml += `
+        <div class="port-item" style="border-left:3px solid #f3b950;">
+          <div class="port-icon">🔗</div>
+          <div class="port-info">
+            <div class="port-name">Port ${esc(p.name)}</div>
+            <div class="port-cable-tip">${haDesc}</div>
+          </div>
+          <span class="port-badge" style="background:#fef3c7;color:#92400e;">HA</span>
+        </div>`;
+    });
+    portsHtml += '</div>';
+  }
+
+  // ── LAN ports ─────────────────────────────────────────────────────────────
+  if ((pc.lan_ports || []).length) {
+    portsHtml += `<div class="ports-section-hdr" style="margin-top:14px;">LAN Ports — Connect Switches Here</div><div class="port-list">`;
+    pc.lan_ports.forEach(p => {
+      const desc = p.description ? `<div class="port-desc">${esc(p.description)}</div>` : '';
+      portsHtml += `
+        <div class="port-item lan">
+          <div class="port-icon">🖥</div>
+          <div class="port-info">
+            <div class="port-name">Port ${esc(p.name)}</div>
+            ${desc}
+            <div class="port-cable-tip">Connect switch or endpoint here</div>
+          </div>
+          <span class="port-badge lan-badge">LAN</span>
+        </div>`;
+    });
+    portsHtml += '</div>';
+  }
+
+  if (!portsHtml) portsHtml = '<div class="ports-empty" style="padding:12px 0;">No port configuration available.</div>';
+
+  return `
+    <div class="ha-device-card">
+      <div class="ha-device-card-header">
+        <span class="ha-device-number">Device ${devNum}</span>
+        ${snDisplay}
+        ${statusBadge}
+      </div>
+      ${serialConfirm}
+      <div class="ha-device-card-body">${portsHtml}</div>
+    </div>`;
+}
+
+function onHaSerial2Input() {
+  // legacy — D2 serial is now captured on screen-ha-setup before port layout
+}
+
+function renderHAChecklist(sn1, sn2) {
+  // legacy — no longer used in HA flow (instructions are inline in device cards)
+}
+
+function buildHAChecklistHtml(sn1, pc1, sn2, pc2) {
+  const lines = [];
+
+  const addLine = (icon, roleClass, label) => {
+    lines.push(`<div class="ha-checklist-line">
+      <span class="ha-cl-icon">${icon}</span>
+      <span class="ha-cl-role ${roleClass}">${roleClass.toUpperCase()}</span>
+      <span>${label}</span>
+    </div>`);
+  };
+
+  // In bypass-based HA, each ION has:
+  //   - A bypass pair: P3 (WAN side, ISP connects here) + P4 (LAN side, cross-connect to peer)
+  //   - A regular WAN port (e.g. P1) that RECEIVES the peer's circuit via the cross-connect
+  //
+  // Checklist order:
+  //   1. ISP connections (WAN side of each bypass pair)
+  //   2. Cross-connect cables (bypass LAN side ↔ matching peer WAN port, matched by circuit)
+  //   3. Any remaining standalone WAN ports not covered by cross-connects
+  //   4. LAN ports
+  //   5. HA heartbeat ports
+
+  // Step 1: ISP connections — bypass WAN sides
+  (pc1.bypass_pairs || []).forEach(bp => {
+    const c = bp.circuit ? ` — ${bp.circuit}` : '';
+    addLine('🔌', 'wan', `ION (S/N: ${sn1}) Port ${bp.wan_port}${c}`);
+  });
+  (pc2.bypass_pairs || []).forEach(bp => {
+    const c = bp.circuit ? ` — ${bp.circuit}` : '';
+    addLine('🔌', 'wan', `ION (S/N: ${sn2}) Port ${bp.wan_port}${c}`);
+  });
+
+  // Step 2: Cross-connect cables — match bypass LAN port to peer's WAN port by circuit name.
+  // ION-1's bypass carries circuit X on P4 → ION-2's WAN port with circuit X (e.g. P1).
+  // ION-2's bypass carries circuit Y on P4 → ION-1's WAN port with circuit Y (e.g. P1).
+  const crossConnectTargets1 = new Set();  // WAN port names on ION-1 that are cross-connect endpoints
+  const crossConnectTargets2 = new Set();  // WAN port names on ION-2 that are cross-connect endpoints
+
+  (pc1.bypass_pairs || []).forEach(bp => {
+    const peerPort = (pc2.wan_ports || []).find(p => p.circuit && p.circuit === bp.circuit);
+    if (peerPort) {
+      crossConnectTargets2.add(peerPort.name);
+      const c = bp.circuit ? ` (${bp.circuit})` : '';
+      addLine('🔗', 'bypass', `ION (S/N: ${sn1}) Port ${bp.lan_port} ↔ ION (S/N: ${sn2}) Port ${peerPort.name}${c}`);
+    } else {
+      addLine('🔗', 'bypass', `ION (S/N: ${sn1}) Port ${bp.lan_port} — cross-connect to peer ION WAN port`);
+    }
+  });
+  (pc2.bypass_pairs || []).forEach(bp => {
+    const peerPort = (pc1.wan_ports || []).find(p => p.circuit && p.circuit === bp.circuit);
+    if (peerPort) {
+      crossConnectTargets1.add(peerPort.name);
+      const c = bp.circuit ? ` (${bp.circuit})` : '';
+      addLine('🔗', 'bypass', `ION (S/N: ${sn2}) Port ${bp.lan_port} ↔ ION (S/N: ${sn1}) Port ${peerPort.name}${c}`);
+    } else {
+      addLine('🔗', 'bypass', `ION (S/N: ${sn2}) Port ${bp.lan_port} — cross-connect to peer ION WAN port`);
+    }
+  });
+
+  // Step 3: Any WAN ports NOT already covered as cross-connect endpoints
+  (pc1.wan_ports || []).forEach(p => {
+    if (crossConnectTargets1.has(p.name)) return;
+    const c = p.circuit ? ` — ${p.circuit}` : '';
+    addLine('🔌', 'wan', `ION (S/N: ${sn1}) Port ${p.name}${c}`);
+  });
+  (pc2.wan_ports || []).forEach(p => {
+    if (crossConnectTargets2.has(p.name)) return;
+    const c = p.circuit ? ` — ${p.circuit}` : '';
+    addLine('🔌', 'wan', `ION (S/N: ${sn2}) Port ${p.name}${c}`);
+  });
+
+  // Step 4: LAN ports
+  (pc1.lan_ports || []).forEach(p => {
+    addLine('🖥', 'lan', `ION (S/N: ${sn1}) Port ${p.name} — LAN Switch`);
+  });
+  (pc2.lan_ports || []).forEach(p => {
+    addLine('🖥', 'lan', `ION (S/N: ${sn2}) Port ${p.name} — LAN Switch`);
+  });
+
+  // Step 5: HA heartbeat — cross-connect between devices
+  const haP1 = pc1.ha_ports || [];
+  const haP2 = pc2.ha_ports || [];
+  const maxHA = Math.max(haP1.length, haP2.length);
+  for (let i = 0; i < maxHA; i++) {
+    const a = haP1[i], b = haP2[i];
+    if (a && b) {
+      addLine('🔗', 'ha', `ION (S/N: ${sn1}) Port ${a.name} ↔ ION (S/N: ${sn2}) Port ${b.name} — HA Heartbeat`);
+    } else if (a) {
+      addLine('🔗', 'ha', `ION (S/N: ${sn1}) Port ${a.name} — HA`);
+    } else if (b) {
+      addLine('🔗', 'ha', `ION (S/N: ${sn2}) Port ${b.name} — HA`);
+    }
+  }
+
+  return lines.join('') || '<div class="ports-empty" style="padding:10px;">No cable connections required.</div>';
 }
 
 function renderPorts(ports, model) {
@@ -2091,23 +3084,29 @@ function buildPortListHtml(ports) {
   }
 
   if (ports.bypass_pairs && ports.bypass_pairs.length > 0) {
-    html += '<div class="ports-section-hdr" style="margin-top:18px;">Bypass Pairs — Connect inline link cables here</div><div class="port-list">';
-    ports.bypass_pairs.forEach(p => {
-      const pair = parsePairName(p);
-      const a = pair[0] ? `Port ${esc(pair[0])}` : '';
-      const b = pair[1] ? `Port ${esc(pair[1])}` : '';
-      const pairTitle = (a && b) ? `Bypass Pair (${a} &amp; ${b})` : `Bypass Pair (${a || b})`;
-      const crossConnect = (a && b)
-        ? `<div class="port-bypass-steps">
-            <div class="port-bypass-step">Connect: ION1 ${a} → ION2 ${b}</div>
-            <div class="port-bypass-step">Connect: ION1 ${b} → ION2 ${a}</div>
-          </div>`
-        : '';
-      const desc = p.description ? `<div class="port-desc">${esc(p.description)}</div>` : '';
-      html += `<div class="port-item" style="border-left:3px solid #dd8aff;align-items:flex-start;">
-        <div class="port-icon" style="margin-top:2px;">⚡</div>
-        <div class="port-info"><div class="port-name">${pairTitle}</div>${crossConnect}${desc}</div>
-        <span class="port-badge" style="background:#ede9fe;color:#5b21b6;flex-shrink:0;">Bypass</span>
+    html += '<div class="ports-section-hdr" style="margin-top:18px;">Bypass Pairs</div><div class="port-list">';
+    ports.bypass_pairs.forEach(bp => {
+      const circuit = bp.circuit ? `<div class="port-circuit">🌐 ${esc(bp.circuit)}</div>` : '';
+      const typeHint = !bp.circuit && bp.wan_type ? `<div class="port-desc">${esc(bp.wan_type)}</div>` : '';
+      const desc = bp.description ? `<div class="port-desc">${esc(bp.description)}</div>` : '';
+      // WAN side — ISP cable connects here
+      html += `<div class="port-item wan">
+        <div class="port-icon">🔌</div>
+        <div class="port-info">
+          <div class="port-name">Port ${esc(bp.wan_port)}</div>
+          ${circuit}${typeHint}${desc}
+          <div class="port-desc" style="color:#7c3aed;">WAN side of bypass pair — connect ISP cable here</div>
+        </div>
+        <span class="port-badge wan-badge">WAN</span>
+      </div>`;
+      // LAN side — cross-connect to peer (or downstream if no HA)
+      html += `<div class="port-item" style="border-left:3px solid #dd8aff;">
+        <div class="port-icon">⚡</div>
+        <div class="port-info">
+          <div class="port-name">Port ${esc(bp.lan_port)}</div>
+          <div class="port-desc" style="color:#7c3aed;">LAN side of bypass pair — cross-connect to peer ION WAN port</div>
+        </div>
+        <span class="port-badge" style="background:#ede9fe;color:#5b21b6;">Bypass</span>
       </div>`;
     });
     html += '</div>';
@@ -2311,6 +3310,7 @@ function resetProgressUI() {
   document.getElementById('progress-active').style.display = '';
   document.getElementById('complete-success').classList.remove('show');
   document.getElementById('complete-failed').classList.remove('show');
+  document.getElementById('report-screen').classList.remove('show');
   document.getElementById('status-msg').textContent = 'Starting installation…';
 }
 
@@ -2394,27 +3394,11 @@ function buildNetRows(ns) {
 
   let html = '';
 
-  // --- Interfaces section ---
-  if (ifaces.length > 0) {
-    html += `<div class="ns-section-label">Interfaces</div>`;
-    html += `<div class="ns-iface-row">`;
-    for (const iface of ifaces) {
-      const cls  = iface.up ? 'up' : 'down';
-      const arrow = iface.up ? '↑' : '↓';
-      const sub  = iface.role === 'WAN' && iface.circuit
-                   ? `<span style="font-weight:400;opacity:.75;font-size:11px;"> ${iface.circuit}</span>`
-                   : `<span style="font-weight:400;opacity:.65;font-size:11px;"> ${iface.role}</span>`;
-      html += `<span class="ns-iface-chip ${cls}">
-        <span class="ns-iface-dot"></span>${iface.name} ${arrow}${sub}
-      </span>`;
-    }
-    html += `</div>`;
-  }
-
-  // --- Fabric section ---
-  if (fabric.length > 0) {
+  // --- Fabric section — only show rows that are actually configured (count > 0) ---
+  const fabricConfigured = fabric.filter(r => r.count > 0);
+  if (fabricConfigured.length > 0) {
     html += `<div class="ns-section-label">Fabric</div>`;
-    for (const row of fabric) {
+    for (const row of fabricConfigured) {
       const none = row.count === 0;
       const dotCls    = none ? 'none' : row.connected ? 'up' : 'down';
       const statusCls = none ? 'none' : row.connected ? 'up' : 'down';
@@ -2467,23 +3451,223 @@ function updateNetworkTable(job) {
 
 function showCompleteSuccess(job) {
   document.getElementById('progress-active').style.display = 'none';
-  document.getElementById('complete-success').classList.add('show');
+
+  // Store job for final transition
+  _pendingCompleteJob = job;
+
+  // Pre-populate the final success confirmation screen
   document.getElementById('success-site-line').textContent = `Device is now active at ${job.site_name}.`;
   if (startTime) {
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     document.getElementById('success-time').textContent = `Total time: ${formatElapsed(elapsed)}`;
   }
-  // Copy network status table content to success screen
-  const ns = job.network_status;
-  const successCard = document.getElementById('net-status-card-success');
-  const successBody = document.getElementById('net-table-body-success');
+  // Reset report screen to loading state and show it
+  document.getElementById('report-loading').style.display = '';
+  document.getElementById('report-results').style.display = 'none';
+  document.getElementById('report-actions').style.display = 'none';
+  document.getElementById('report-recheck-btn').disabled = false;
+  document.getElementById('report-screen').classList.add('show');
+
+  // Fetch port validation and render combined report
+  _runFullReport(job);
+}
+
+async function _runFullReport(job) {
+  // Fetch fresh port validation and render with job's network_status.
+  let portData = null;
+  try {
+    const res = await fetch(BASE + `/api/jobs/${job.id}/validate-ports`);
+    portData = await res.json();
+  } catch { /* portData stays null */ }
+  await _renderReport(job.network_status, portData);
+}
+
+async function _renderReport(ns, portData) {
+  // Network section
+  const netCard = document.getElementById('report-net-card');
+  const netBody = document.getElementById('report-net-body');
   if (ns) {
-    successBody.innerHTML = buildNetRows(ns);
-    successCard.style.display = '';
+    netBody.innerHTML = buildNetRows(ns);
+  } else {
+    netBody.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:#94a3b8;">Network status unavailable — unable to reach device. Tunnels will initialize automatically once the device comes online.</div>';
   }
-  // Show recheck button if any fabric row is not connected
-  const anyDown = ns && !(ns.all_up);
-  document.getElementById('recheck-btn-success').style.display = anyDown ? '' : 'none';
+  netCard.style.display = '';
+
+  // Port section
+  const portCard = document.getElementById('report-port-card');
+  const portBody = document.getElementById('report-port-body');
+  const portSum  = document.getElementById('report-port-summary');
+  let allPortsPass = false;
+  let hasPortFail  = false;
+
+  if (portData && portData.ok && portData.validation && portData.validation.length > 0) {
+    portBody.innerHTML = buildPortValHtml(portData.validation);
+    portCard.style.display = '';
+    allPortsPass = portData.all_pass === true;
+    hasPortFail  = portData.has_fail === true;
+    if (allPortsPass) {
+      portSum.textContent = '✅ All UP';
+      portSum.style.color = 'var(--green)';
+    } else if (hasPortFail) {
+      portSum.textContent = '⚠️ Issues found';
+      portSum.style.color = 'var(--red)';
+    } else {
+      portSum.textContent = 'Status unknown';
+      portSum.style.color = '#94a3b8';
+    }
+  } else {
+    portBody.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:#94a3b8;">Port status unavailable.</div>';
+    portCard.style.display = '';
+    portSum.textContent = '';
+    allPortsPass = false;
+    hasPortFail  = false;
+  }
+
+  // Overall status
+  const netAllUp = !ns || ns.all_up;
+  const allGood  = allPortsPass && netAllUp;
+
+  // Update icon + title
+  const icon     = document.getElementById('report-icon');
+  const title    = document.getElementById('report-title');
+  const subtitle = document.getElementById('report-subtitle');
+
+  if (allGood) {
+    icon.className = 'big-icon success';
+    icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" width="44" height="44">
+      <path d="M20 6L9 17l-5-5" stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+    title.textContent = 'Installation Report';
+    subtitle.textContent = 'All checks passed. Ready to complete.';
+  } else {
+    icon.className = 'big-icon warning';
+    icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" width="44" height="44">
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="12" y1="9" x2="12" y2="13" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="12" y1="17" x2="12.01" y2="17" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>`;
+    title.textContent = 'Installation Report';
+    subtitle.textContent = 'Some issues found. Review below, then recheck or ignore to finish.';
+  }
+
+  // Show action buttons
+  const completeBtn = document.getElementById('report-complete-btn');
+  const ignoreBtn   = document.getElementById('report-ignore-btn');
+  if (allGood) {
+    completeBtn.style.display = '';
+    ignoreBtn.style.display   = 'none';
+  } else {
+    completeBtn.style.display = 'none';
+    ignoreBtn.style.display   = '';
+  }
+  document.getElementById('report-recheck-btn').disabled = false;
+  document.getElementById('report-actions').style.display = 'flex';
+
+  // Flip from loading to results
+  document.getElementById('report-loading').style.display = 'none';
+  document.getElementById('report-results').style.display = '';
+}
+
+async function recheckReport() {
+  if (!currentJob) return;
+  document.getElementById('report-loading').style.display = '';
+  document.getElementById('report-results').style.display = 'none';
+  document.getElementById('report-actions').style.display = 'none';
+  document.getElementById('report-recheck-btn').disabled = true;
+
+  // Hit the recheck endpoint — it runs fresh API calls and returns both results directly.
+  let recheckData = null;
+  try {
+    const r = await fetch(BASE + `/api/jobs/${currentJob.id}/recheck-network`, { method: 'POST' });
+    recheckData = await r.json();
+  } catch { /* fall through — render with whatever is cached */ }
+
+  if (recheckData && recheckData.ok) {
+    // Fresh data returned — render directly, no polling needed.
+    await _renderReport(recheckData.network_status, recheckData.port_validation);
+  } else {
+    // Endpoint failed — fall back to cached job data + separate validate-ports call.
+    try {
+      const res = await fetch(BASE + `/api/jobs/${currentJob.id}`);
+      const data = await res.json();
+      if (data.job) currentJob = data.job;
+    } catch { /* keep existing */ }
+    await _runFullReport(currentJob);
+  }
+}
+
+function transitionToComplete() {
+  document.getElementById('report-screen').classList.remove('show');
+  document.getElementById('complete-success').classList.add('show');
+  const job = _pendingCompleteJob;
+  if (!job) return;
+  if (haMode) {
+    loadHARoles(job);
+  } else {
+    document.getElementById('ha-roles-card').style.display = 'none';
+  }
+}
+
+function buildPortValHtml(validation) {
+  if (!validation || validation.length === 0)
+    return '<div style="padding:12px 16px;font-size:13px;color:#94a3b8;">No ports to validate.</div>';
+
+  const ROLE_LABELS = {
+    'WAN': 'WAN', 'WAN-Bypass': 'WAN (Bypass)', 'LAN-Bypass': 'Bypass Link',
+    'LAN': 'LAN', 'HA': 'HA',
+  };
+  let html = '';
+  validation.forEach(v => {
+    const dotClass = v.result;
+    const upLabel = v.up === true ? 'UP' : v.up === false ? 'DOWN' : '?';
+    const upColor = v.up === true ? 'var(--green)' : v.up === false ? 'var(--red)' : '#94a3b8';
+    const roleDisplay = ROLE_LABELS[v.role] || v.role;
+    const label = v.circuit ? `${v.circuit} (${roleDisplay})` : roleDisplay;
+    html += `<div class="port-val-row">
+      <span class="port-val-dot ${dotClass}"></span>
+      <span class="port-val-name">Port ${esc(v.name)}</span>
+      <span class="port-val-circuit">${esc(label)}</span>
+      <span style="font-size:11px;font-weight:700;color:${upColor};">${upLabel}</span>
+    </div>`;
+    if (v.tip) {
+      html += `<div class="port-val-tip">🔧 ${esc(v.tip)}</div>`;
+    }
+  });
+  return html;
+}
+
+async function loadHARoles(job) {
+  const card = document.getElementById('ha-roles-card');
+  const body = document.getElementById('ha-roles-body');
+  const note = document.getElementById('ha-backup-note');
+  card.style.display = '';
+  body.innerHTML = '<div style="padding:10px 16px;font-size:13px;color:#94a3b8;">Loading HA roles…</div>';
+  note.style.display = 'none';
+
+  try {
+    const res = await fetch(BASE + `/api/jobs/${job.id}/ha-status`);
+    const data = await res.json();
+    if (!data.ok || !data.roles) {
+      body.innerHTML = '<div style="padding:10px 16px;font-size:13px;color:#94a3b8;">Could not determine HA roles.</div>';
+      return;
+    }
+    const roles = data.roles;
+    let html = '';
+    let hasBackup = false;
+    Object.entries(roles).forEach(([eid, info]) => {
+      const roleLabel = info.role || 'unknown';
+      if (roleLabel === 'backup') hasBackup = true;
+      const sn = info.serial ? ` <span class="ha-role-sn">(S/N: ${esc(info.serial)})</span>` : '';
+      html += `<div class="ha-role-row">
+        <span class="ha-role-badge ${roleLabel}">${roleLabel.toUpperCase()}</span>
+        ${sn}
+      </div>`;
+    });
+    body.innerHTML = html || '<div style="padding:10px 16px;font-size:13px;color:#94a3b8;">No elements found.</div>';
+    note.style.display = hasBackup ? '' : 'none';
+  } catch {
+    body.innerHTML = '<div style="padding:10px 16px;font-size:13px;color:#94a3b8;">Could not load HA role data.</div>';
+  }
 }
 
 function showCompleteFailed(job) {
@@ -2584,6 +3768,8 @@ async function recheckNetwork() {
   currentJob = data.job;
   document.getElementById('complete-success').classList.remove('show');
   document.getElementById('complete-failed').classList.remove('show');
+  document.getElementById('report-screen').classList.remove('show');
+  _pendingCompleteJob = null;
   document.getElementById('progress-active').style.display = '';
   // Reset only step 6 (network check) to active, keep earlier steps green
   const s = document.getElementById('step-6');
@@ -2610,6 +3796,8 @@ function resetApp() {
   document.getElementById('manual-setup').classList.remove('show');
   document.getElementById('complete-success').classList.remove('show');
   document.getElementById('complete-failed').classList.remove('show');
+  document.getElementById('report-screen').classList.remove('show');
+  _pendingCompleteJob = null;
   document.getElementById('progress-active').style.display = '';
   document.getElementById('elapsed-timer').textContent = '';
   // Reset sites screen

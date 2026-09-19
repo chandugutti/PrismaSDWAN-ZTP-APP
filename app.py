@@ -79,8 +79,23 @@ SEARCHING_TIMEOUT = 1800        # 30 min — fail if serial never found in contr
 WAITING_ONLINE_TIMEOUT = 1800   # 30 min — fail if device never comes online after found
 PROVISIONING_TIMEOUT = 900      # 15 min — fail if provisioning never completes
 UPGRADE_TIMEOUT = 600   # seconds — max time to wait for software upgrade
-VERSION_CHECK_TIMEOUT = 300  # seconds — max time to confirm running version after upgrade
-FABRIC_TIMEOUT = 90    # seconds — max time to wait for SDWAN Fabric tunnels before declaring done
+VERSION_CHECK_TIMEOUT = 600  # seconds — max time to confirm running version after upgrade
+FABRIC_TUNNEL_TIMEOUT = 90   # seconds — max time in partial-tunnel state after device is online
+FABRIC_REBOOT_WAIT = 600     # seconds — safety ceiling: max time waiting for device to come back online after reboot
+
+# Normalized upgrade state values returned by get_software_upgrade_status.
+# NONE    = API 200, parsed correctly, zero records for this element (confirmed no active upgrade).
+# UNKNOWN = API timeout / non-200 / exception / malformed / missing element_id.
+# All other values come from the upgrade_state field returned by the API.
+UPG_NONE        = "NONE"
+UPG_PENDING     = "PENDING"
+UPG_DOWNLOADING = "DOWNLOADING"
+UPG_INSTALLING  = "INSTALLING"
+UPG_REBOOTING   = "REBOOTING"
+UPG_COMPLETE    = "COMPLETE"
+UPG_FAILED      = "FAILED"
+UPG_UNKNOWN     = "UNKNOWN"
+
 JOBS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jobs.json")
 LOCATION_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "location_settings.json")
 DEFAULT_LOCATION_SETTINGS = {
@@ -295,134 +310,277 @@ def claim_machine_to_element(sdk, machine_id, element_id):
 def check_machine_provisioned(sdk, machine_id):
     """Return (provisioned: bool, state_description: str).
 
-    Ground truth is the machine record:
-    - element_shell_id set, element_id None → allocated to shell, provisioning in progress
-    - element_id set + connected → fully provisioned
+    Completion requires BOTH:
+      - machine_state == 'claimed'   (controller sent the config)
+      - em_element_id is populated   (device called back; session established)
+    These are effectively atomic but the dual check guards the brief window
+    where claimed may appear before em_element_id is written.
+
+    On success, state_description is 'claimed:<em_element_id>' so the caller
+    can extract the real element ID without a second machine lookup.
     """
     machine = get_machine_by_id(sdk, machine_id)
     if not machine:
         return False, "machine not found"
 
     m_state = (machine.get("machine_state") or "").lower()
-    connected = bool(machine.get("connected"))
-    element_id = machine.get("element_id")
+    em_element_id = machine.get("em_element_id") or ""
     element_shell_id = machine.get("element_shell_id")
 
-    _log.info(f"machine {machine_id}: machine_state={m_state!r} connected={connected} "
-              f"element_id={element_id!r} element_shell_id={element_shell_id!r}")
+    _log.info(f"machine {machine_id}: machine_state={m_state!r} "
+              f"em_element_id={em_element_id!r} element_shell_id={element_shell_id!r}")
 
-    # Primary completion signal: machine_state transitions to 'claimed' after device provisions
-    if m_state == "claimed":
-        return True, "claimed"
+    if m_state == "claimed" and em_element_id:
+        return True, f"claimed:{em_element_id}"
 
-    # Secondary: element_id populated also means fully provisioned
-    if element_id:
-        return True, "online"
+    if m_state == "allocated":
+        if element_shell_id:
+            return False, "allocated — device is installing certificate and downloading configuration"
+        return False, "allocated — waiting for controller to bind device to shell"
 
-    # Still in progress — allocation sent, device is configuring
-    if element_shell_id:
-        return False, "allocated to shell — device is downloading configuration"
-
-    return False, f"state={m_state or 'unknown'} — waiting for controller to process allocation"
+    return False, f"state={m_state or 'unknown'} — waiting..."
 
 
 def get_software_upgrade_status(sdk, site_id, element_id):
-    """Returns (is_done: bool, message: str, from_ver: str, to_ver: str).
+    """Returns a normalized upgrade-state dict.
+
+    Keys:
+      state        — one of the UPG_* module constants
+      progress     — int percentage or None
+      from_version — str or ""
+      to_version   — str or ""
+      api_success  — True if HTTP 200 + clean parse; False otherwise
+
+    NONE  : API 200, parsed correctly, zero records → confirmed no active upgrade.
+    UNKNOWN : API timeout / non-200 / exception / malformed / missing element_id.
 
     Tries in order:
       1. GET /sdwan/v2.1/api/elements/{element_id}/software/status  (per-element)
       2. POST /sdwan/v2.1/api/software/status/query                 (tenant-wide, filtered)
-      3. sdk.get.software_status(site_id, element_id)               (SDK fallback)
     """
+    def _unknown():
+        return {"state": UPG_UNKNOWN, "progress": None,
+                "from_version": "", "to_version": "", "api_success": False}
+
+    def _none():
+        return {"state": UPG_NONE, "progress": None,
+                "from_version": "", "to_version": "", "api_success": True}
+
+    if not element_id:
+        return _unknown()
+
     sess = getattr(sdk, "session", None)
     ctrl = (getattr(sdk, "controller", None) or "").rstrip("/")
-    from_ver = to_ver = ""
+    if not (sess and ctrl):
+        return _unknown()
 
-    def _parse_items(items):
-        """Return (is_done, message, from_ver, to_ver) from a list of status items."""
-        nonlocal from_ver, to_ver
+    def _parse_items(items, filter_eid=None):
+        """Select the best upgrade record: filter by element_id, prefer active states, then newest timestamp."""
+        _STATE_PRIO = {
+            "downloading": (4, UPG_DOWNLOADING),
+            "upgrading":   (4, UPG_INSTALLING),
+            "in_progress": (4, UPG_INSTALLING),
+            "rebooting":   (4, UPG_REBOOTING),
+            "pending":     (3, UPG_PENDING),
+            "scheduled":   (3, UPG_PENDING),
+            "complete":    (2, UPG_COMPLETE),
+            "success":     (2, UPG_COMPLETE),
+            "succeeded":   (2, UPG_COMPLETE),
+            "current":     (2, UPG_COMPLETE),
+            "failed":      (1, UPG_FAILED),
+            "error":       (1, UPG_FAILED),
+        }
+        best_prio, best_ts, best_rec = -1, -1.0, None
         for item in items:
-            state = (item.get("upgrade_state") or item.get("state") or "").lower()
+            if filter_eid:
+                item_eid = item.get("element_id") or item.get("elementId") or ""
+                if item_eid and item_eid != filter_eid:
+                    continue
+            raw = (item.get("upgrade_state") or item.get("state") or "").lower()
+            prio, state = _STATE_PRIO.get(raw, (0, UPG_UNKNOWN))
             fv = item.get("from_image_version") or item.get("from_version") or ""
-            tv = item.get("to_image_version") or item.get("to_version") or item.get("image_version") or ""
-            if fv: from_ver = fv
-            if tv: to_ver = tv
-            pct = item.get("percentage") or item.get("progress") or ""
-            pct_str = f" ({pct}%)" if pct else ""
-            ver_str = f"{from_ver} → {to_ver} — " if from_ver and to_ver else ""
-            if state in ("upgrading", "downloading", "in_progress"):
-                return False, f"{ver_str}Upgrade in progress{pct_str}…", from_ver, to_ver
-            if state == "rebooting":
-                return False, f"{ver_str}Device rebooting after upgrade…", from_ver, to_ver
-            if state in ("pending", "scheduled"):
-                # "pending"/"scheduled" means the controller has a scheduled upgrade record but
-                # the device hasn't started downloading yet — effectively no active upgrade.
-                # If an upgrade truly starts, the state moves to "downloading" immediately.
-                done_msg = f"Running {to_ver}" if to_ver else "Software is current"
-                return True, done_msg, from_ver, to_ver
-            if state in ("complete", "success", "succeeded", "current"):
-                done_msg = f"Running {to_ver}" if to_ver else "Software is current"
-                return True, done_msg, from_ver, to_ver
-        # Items present but no active upgrade state → done
-        done_msg = f"Running {to_ver}" if to_ver else "Software is current"
-        return True, done_msg, from_ver, to_ver
+            tv = (item.get("to_image_version") or item.get("to_version")
+                  or item.get("image_version") or "")
+            pct_raw = item.get("percentage") or item.get("progress")
+            progress = None
+            if pct_raw is not None:
+                try:
+                    progress = int(pct_raw)
+                except (ValueError, TypeError):
+                    pass
+            ts_str = (item.get("updated_on") or item.get("timestamp")
+                      or item.get("_updated_at_utc") or "")
+            try:
+                ts = (datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+                      if ts_str else 0.0)
+            except Exception:
+                ts = 0.0
+            if ts > best_ts or (ts == best_ts and prio > best_prio):
+                best_prio, best_ts = prio, ts
+                best_rec = {"state": state, "progress": progress,
+                            "from_version": fv, "to_version": tv, "api_success": True}
+        return best_rec
 
     # 1. Per-element REST endpoint (most authoritative)
-    if sess and ctrl and element_id:
-        try:
-            url = f"{ctrl}/sdwan/v2.1/api/elements/{element_id}/software/status"
-            r = sess.get(url, timeout=10)
-            if r.status_code == 200:
-                body = r.json()
-                items = body.get("items", []) if isinstance(body, dict) else []
-                if not items and isinstance(body, dict) and body:
-                    items = [body]  # single-object response
-                if items:
-                    return _parse_items(items)
-                return True, "No software upgrade in progress", from_ver, to_ver
-        except Exception as e:
-            _log.warning(f"software/status element endpoint failed: {e}")
+    try:
+        url = f"{ctrl}/sdwan/v2.1/api/elements/{element_id}/software/status"
+        r = sess.get(url, timeout=10)
+        if r.status_code == 200:
+            body = r.json()
+            items = body.get("items", []) if isinstance(body, dict) else []
+            if not items and isinstance(body, dict) and body:
+                items = [body]
+            if items:
+                result = _parse_items(items, filter_eid=element_id)
+                if result is not None:
+                    return result
+            # HTTP 200 + empty, or no element-id-matched record → fall through to tenant-wide query
+        # Non-200 on per-element → fall through to query endpoint
+    except Exception as e:
+        _log.warning(f"software/status element endpoint failed: {e}")
 
     # 2. Tenant-wide query filtered to this element
-    if sess and ctrl and element_id:
-        try:
-            url = f"{ctrl}/sdwan/v2.1/api/software/status/query"
-            r = sess.post(url, json={"query": {"element_id": {"in": [element_id]}}}, timeout=10)
-            if r.status_code == 200:
-                data = r.json()
-                items = data.get("items", []) if isinstance(data, dict) else []
-                if items:
-                    return _parse_items(items)
-                return True, "No software upgrade in progress", from_ver, to_ver
-        except Exception as e:
-            _log.warning(f"software/status query fallback failed: {e}")
+    try:
+        url = f"{ctrl}/sdwan/v2.1/api/software/status/query"
+        r = sess.post(url, json={"query": {"element_id": {"in": [element_id]}}}, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            items = data.get("items", []) if isinstance(data, dict) else []
+            if items:
+                result = _parse_items(items, filter_eid=element_id)
+                if result is not None:
+                    return result
+            else:
+                return _none()
+    except Exception as e:
+        _log.warning(f"software/status query fallback failed: {e}")
 
-    return True, "Software status unavailable — assuming current", "", ""
+    return _unknown()
+
+
+def _parse_version(ver_str):
+    """Parse 'X.Y.Z-bN' into a tuple for comparison: (X, Y, Z, N).
+    Non-numeric segments are treated as 0 so comparisons degrade gracefully."""
+    import re
+    ver_str = (ver_str or "").strip().lower().lstrip("v")
+    # Split on '-b' to separate base version from build number
+    if "-b" in ver_str:
+        base, build = ver_str.rsplit("-b", 1)
+    else:
+        base, build = ver_str, "0"
+    parts = re.split(r"[.\-]", base)
+    nums = []
+    for p in parts:
+        try:
+            nums.append(int(p))
+        except ValueError:
+            nums.append(0)
+    # Pad to at least 3 segments
+    while len(nums) < 3:
+        nums.append(0)
+    try:
+        build_num = int(build)
+    except ValueError:
+        build_num = 0
+    return tuple(nums[:3]) + (build_num,)
+
+
+def _version_gte(current, target):
+    """Return True if current version >= target version (same or newer is acceptable)."""
+    return _parse_version(current) >= _parse_version(target)
+
+
+def _upgrade_state_message(upg):
+    """Return a human-readable status string from a normalized upgrade dict."""
+    state = upg.get("state", UPG_UNKNOWN)
+    fv = upg.get("from_version", "")
+    tv = upg.get("to_version", "")
+    pct = upg.get("progress")
+
+    ver_str = f"{fv} → {tv} — " if fv and tv else ""
+    pct_str = f" ({pct}%)" if pct is not None else ""
+
+    if state == UPG_DOWNLOADING:
+        return f"{ver_str}Downloading software update{pct_str}…"
+    if state == UPG_INSTALLING:
+        return f"{ver_str}Installing software update{pct_str}…"
+    if state == UPG_REBOOTING:
+        return f"{ver_str}Device rebooting after upgrade…"
+    if state == UPG_PENDING:
+        return "Upgrade pending — waiting to start…"
+    if state == UPG_COMPLETE:
+        return f"Running {tv}" if tv else "Software is current"
+    if state == UPG_FAILED:
+        return f"{ver_str}Software upgrade failed"
+    if state == UPG_NONE:
+        return "No active upgrade record — device is current"
+    return "Software status unavailable"
 
 
 def get_current_software_version(sdk, element_id):
     """Returns (version: str, message: str) — confirms the version currently running on the element.
 
-    Calls POST /sdwan/v2.1/api/software/current_status/query.
+    Primary: POST /sdwan/v2.1/api/software/current_status/query
+    Fallback: GET /sdwan/v2.0/api/elements/{id} → software_version field
     """
+    if not element_id:
+        return "", "Version check unavailable"
+
+    # Primary: current_status query
+    try:
+        resp = sdk.get.elements_query({"query": {"element_id": {"in": [element_id]}}})
+    except Exception:
+        resp = None
+
+    sess = getattr(sdk, "session", None)
+    ctrl = (getattr(sdk, "controller", None) or "").rstrip("/")
+    if sess and ctrl:
+        try:
+            url = f"{ctrl}/sdwan/v2.1/api/software/current_status/query"
+            r = sess.post(url, json={"query": {"element_id": {"in": [element_id]}}}, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                items = data.get("items", []) if isinstance(data, dict) else []
+                for item in items:
+                    ver = (item.get("current_version") or item.get("version")
+                           or item.get("image_version") or "")
+                    if ver:
+                        return ver, f"Running {ver}"
+        except Exception as e:
+            _log.warning(f"current_status/query failed: {e}")
+
+    # Fallback: read software_version directly from the element record
+    try:
+        resp_e = sdk.get.elements(element_id)
+        elem = getattr(resp_e, "cgx_content", {})
+        ver = (elem.get("software_version") or "")
+        if ver and not ver.startswith("SHELL#"):
+            return ver, f"Running {ver}"
+    except Exception as e:
+        _log.warning(f"elements fallback for version failed: {e}")
+
+    return "", "Running version unavailable"
+
+
+def get_software_desired_version(sdk, element_id):
+    """Returns (target_version: str, message: str) — desired version from elements/{id}/software/state."""
     sess = getattr(sdk, "session", None)
     ctrl = (getattr(sdk, "controller", None) or "").rstrip("/")
     if not (sess and ctrl and element_id):
-        return "", "Version check unavailable"
+        return "", "Desired version unavailable"
     try:
-        url = f"{ctrl}/sdwan/v2.1/api/software/current_status/query"
-        r = sess.post(url, json={"query": {"element_id": {"in": [element_id]}}}, timeout=10)
+        url = f"{ctrl}/sdwan/v2.0/api/elements/{element_id}/software/state"
+        r = sess.get(url, timeout=10)
         if r.status_code == 200:
             data = r.json()
-            items = data.get("items", []) if isinstance(data, dict) else []
-            for item in items:
-                ver = (item.get("current_version") or item.get("version")
-                       or item.get("image_version") or "")
+            if isinstance(data, dict):
+                ver = (data.get("image_version") or data.get("version") or
+                       data.get("target_version") or "")
                 if ver:
-                    return ver, f"Running {ver}"
+                    return ver, f"Target version: {ver}"
     except Exception as e:
-        _log.warning(f"current_status/query failed: {e}")
-    return "", "Running version unavailable"
+        _log.warning(f"software/state endpoint failed: {e}")
+    return "", "Desired version unavailable"
 
 
 def get_element_operational_status(sdk, site_id, element_id):
@@ -507,8 +665,10 @@ def get_network_status(sdk, site_id, element_id):
         "message": str,
       }
     """
-    sess = getattr(sdk, "session", None)
+    sess = getattr(sdk, "session", None) or getattr(sdk, "_session", None)
     ctrl = (getattr(sdk, "controller", None) or "").rstrip("/")
+
+    _api_ok = [False]  # tracks whether any REST call returned HTTP 200
 
     def _rest(method, path, body=None):
         if not (sess and ctrl):
@@ -519,8 +679,9 @@ def get_network_status(sdk, site_id, element_id):
             else:
                 r = sess.post(f"{ctrl}{path}", json=body or {}, timeout=8)
             if r.status_code == 200:
+                _api_ok[0] = True
                 return r.json()
-            _log.debug(f"get_network_status: {method} {path} → {r.status_code}")
+            _log.warning(f"get_network_status: {method} {path} → {r.status_code}")
         except Exception as e:
             _log.warning(f"get_network_status: {method} {path} failed: {e}")
         return None
@@ -575,7 +736,9 @@ def get_network_status(sdk, site_id, element_id):
     if vpn_data:
         vpn_links_raw = vpn_data.get("items", [])
 
-    # Fallback: topology links query (already proven to work)
+    _log.info(f"get_network_status: site={site_id} element={element_id} vpn_links={len(vpn_links_raw)}")
+
+    # Fallback: topology links query when vpnlinks/query returned nothing
     if not vpn_links_raw:
         topo = _topology_links_query(sdk, site_id)
         for link in topo:
@@ -588,17 +751,21 @@ def get_network_status(sdk, site_id, element_id):
                     "_topo": True,
                 })
 
+    _UP_STATES = {"up", "active", "established", "connected", "online"}
+
     def _fetch_vpn_link_status(link):
         link_id = link.get("id")
         actual = "down"
         if link_id and not link.get("_topo"):
-            sd = _rest("GET", f"/sdwan/v2.2/api/vpnlinks/{link_id}/status")
-            if sd:
-                st = (sd.get("state") or "").lower()
-                actual = "up" if st == "up" else "init" if st in ("init", "initializing", "pending") else "down"
+            for _ver in ("v2.2", "v2.1", "v2.0"):
+                sd = _rest("GET", f"/sdwan/{_ver}/api/vpnlinks/{link_id}/status")
+                if sd:
+                    st = (sd.get("state") or sd.get("vpnlink_state") or "").lower()
+                    actual = "up" if st in _UP_STATES else "init" if st in ("init", "initializing", "pending") else "down"
+                    break
         if actual == "down":
-            raw = (link.get("state") or link.get("status") or "").lower()
-            actual = "up" if raw == "up" else "init" if raw in ("init", "initializing") else "down"
+            raw = (link.get("state") or link.get("status") or link.get("vpnlink_state") or "").lower()
+            actual = "up" if raw in _UP_STATES else "init" if raw in ("init", "initializing") else "down"
         return actual
 
     # Resolve peer site IDs to names for display using SDK
@@ -625,6 +792,27 @@ def get_network_status(sdk, site_id, element_id):
                             vpn_up_peers.append(site_name_map.get(pid, pid))
                 except Exception:
                     pass
+
+    # If REST query returned links but none show UP, topology may have better status data.
+    # Only use this fallback when no specific element_id is scoped — topology is site-wide
+    # and would incorrectly show other devices' tunnels as belonging to the new device.
+    if vpn_total > 0 and vpn_up == 0:
+        topo = _topology_links_query(sdk, site_id)
+        topo_up = 0
+        topo_peers = []
+        for link in topo:
+            if link.get("type") in ("public-anynet", "private-anynet"):
+                raw = (link.get("status") or link.get("state") or "").lower()
+                if raw in _UP_STATES:
+                    topo_up += 1
+                    pid = link.get("target_site_id") or link.get("source_site_id")
+                    if pid and pid != site_id:
+                        topo_peers.append(site_name_map.get(pid, pid))
+        if topo_up > 0:
+            _log.info(f"get_network_status: REST showed 0/{vpn_total} up; topology shows {topo_up} up — using topology")
+            vpn_up = topo_up
+            vpn_up_peers = topo_peers
+
     # Deduplicate while preserving order
     seen = set()
     vpn_peers_unique = [p for p in vpn_up_peers if not (p in seen or seen.add(p))]
@@ -686,22 +874,34 @@ def get_network_status(sdk, site_id, element_id):
     ha_up  = ha_total  = 0
 
     iface_configs = []
-    d = _rest("GET", f"/sdwan/v4.21/api/sites/{site_id}/elements/{element_id}/interfaces")
-    if d:
-        iface_configs = d.get("items", [])
+    _iface_paths = [
+        f"/sdwan/v4.21/api/sites/{site_id}/elements/{element_id}/interfaces",
+        f"/sdwan/v2.1/api/sites/{site_id}/elements/{element_id}/interfaces",
+        f"/sdwan/v4.1/api/sites/{site_id}/elements/{element_id}/interfaces",
+        f"/sdwan/v2.0/api/sites/{site_id}/elements/{element_id}/interfaces",
+    ]
+    for _ipath in _iface_paths:
+        d = _rest("GET", _ipath)
+        if d:
+            iface_configs = d.get("items", [])
+            if iface_configs:
+                _log.info(f"get_network_status: {len(iface_configs)} interfaces via {_ipath}")
+                break
     if not iface_configs:
         try:
-            iface_resp = sdk.get.elementinterfaces(site_id, element_id)
+            iface_resp = sdk.get.interfaces(site_id, element_id)
             iface_configs = _safe_items(iface_resp) or []
+            if iface_configs:
+                _log.info(f"get_network_status: {len(iface_configs)} interfaces via sdk.get.interfaces")
         except Exception as e:
-            _log.warning(f"get_network_status: elementinterfaces fallback failed: {e}")
+            _log.warning(f"get_network_status: sdk.get.interfaces fallback failed: {e}")
 
     def _fetch_iface_result(iface):
         iface_id = iface.get("id")
         used_for = (iface.get("used_for") or iface.get("if_type") or "").lower()
         admin_up = (iface.get("admin_state") or "").lower() in ("up", "enabled", "active")
 
-        if used_for in ("wan", "publicwan", "privatewan") or iface.get("site_wan_interface_ids"):
+        if used_for in ("wan", "publicwan", "privatewan", "public", "private") or iface.get("site_wan_interface_ids"):
             role = "WAN"
         elif used_for == "lan":
             role = "LAN"
@@ -797,6 +997,7 @@ def get_network_status(sdk, site_id, element_id):
         "fabric":     fabric,
         "all_up":     all_up,
         "message":    message,
+        "raw_ok":     _api_ok[0],
     }
 
 
@@ -883,64 +1084,86 @@ def get_port_config(sdk, site_id, element_id):
     except Exception as e:
         _log.warning(f"get_port_config: sdk.get.waninterfaces failed: {e}")
 
-    # 4. Categorize ports — used_for is the authoritative signal
+    # 4. Categorize ports
     def _fmt_wan_type(raw):
         return {"publicwan": "Public WAN", "privatewan": "Private WAN"}.get(raw.lower(), raw.replace("_", " ").title())
 
-    # Build interface-ID → port-name map so bypass peer IDs can be resolved to human names.
-    # bypass_pair.wan / bypass_pair.lan are internal DB IDs, not port labels.
-    id_to_portname = {}
+    # Build ID → interface map for bypass pair resolution.
+    # bypass_pair.wan / bypass_pair.lan are interface IDs, not port labels.
+    id_to_iface = {}
     for iface in items:
         iid = iface.get("id")
         if iid:
-            id_to_portname[iid] = iface.get("name") or iface.get("if_name") or ""
+            id_to_iface[iid] = iface
 
-    wan_ports, lan_ports, ha_ports, bypass_pairs = [], [], [], []
-    seen_bypass = set()
+    # Pass 1 — collect all bypass pair port IDs and build bypass_pairs list.
+    # Each bypass pair has a WAN side (P3, ISP connects here) and a LAN side (P4,
+    # cross-connect cable to the peer ION's regular WAN port).  The circuit name
+    # belongs to the WAN side.
+    bypass_port_ids = set()
+    seen_bypass_keys = set()
+    bypass_pairs = []
+
+    for iface in items:
+        bypass = iface.get("bypass_pair")
+        if not bypass or not isinstance(bypass, dict):
+            continue
+        wan_id = bypass.get("wan") or ""
+        lan_id = bypass.get("lan") or ""
+        for bid in (wan_id, lan_id):
+            if bid:
+                bypass_port_ids.add(bid)
+
+        pair_key = tuple(sorted(filter(None, [wan_id, lan_id])))
+        if not pair_key or pair_key in seen_bypass_keys:
+            continue
+        seen_bypass_keys.add(pair_key)
+
+        wan_iface = id_to_iface.get(wan_id) or {}
+        lan_iface = id_to_iface.get(lan_id) or {}
+        wan_port = wan_iface.get("name") or wan_iface.get("if_name") or "?"
+        lan_port = lan_iface.get("name") or lan_iface.get("if_name") or "?"
+
+        # Circuit name comes from the WAN-side port's wan_interface_ids
+        circuit, wan_type = "", ""
+        for wid in (wan_iface.get("site_wan_interface_ids") or []):
+            info = wan_name_map.get(wid, {})
+            lbl = info.get("name", "")
+            if lbl and not str(lbl).strip().isdigit():
+                circuit = lbl
+            wan_type = wan_type or info.get("type", "")
+
+        type_label = _fmt_wan_type(wan_type) if wan_type else ""
+        description = wan_iface.get("description") or lan_iface.get("description") or ""
+        _log.info(f"get_port_config: bypass wan_port={wan_port!r} lan_port={lan_port!r} circuit={circuit!r}")
+        bypass_pairs.append({
+            "wan_port": wan_port,   # P3 — ISP cable connects here
+            "lan_port": lan_port,   # P4 — cross-connect to peer ION WAN port
+            "circuit": circuit,
+            "wan_type": type_label,
+            "description": description,
+        })
+
+    # Pass 2 — classify all non-bypass ports
+    wan_ports, lan_ports, ha_ports = [], [], []
+
     for iface in items:
         port_name = iface.get("name") or iface.get("if_name") or "?"
-        description = iface.get("description") or ""
-        used_for = (iface.get("used_for") or "").lower()
+        iid = iface.get("id") or ""
 
         if port_name.lower().startswith("controller"):
-            continue  # management port — always skip
+            continue
+        if iid in bypass_port_ids:
+            continue  # already captured as part of a bypass pair
+
+        used_for = (iface.get("used_for") or "").lower()
         if used_for == "none":
-            continue  # unconfigured port — skip
+            continue
 
+        description = iface.get("description") or ""
         wan_ids = iface.get("site_wan_interface_ids") or []
-        bypass = iface.get("bypass_pair")
 
-        # Check bypass FIRST — bypass ports may also have wan_ids as an artifact,
-        # but the bypass_pair dict is the authoritative signal they are inline bypass ports.
-        if bypass and isinstance(bypass, dict):
-            current_id = iface.get("id") or ""
-            wan_id = bypass.get("wan") or ""
-            lan_id = bypass.get("lan") or ""
-            # Resolve peer ID to a port name (skip if same as current or unresolvable)
-            peer_name = ""
-            for cand_id in (wan_id, lan_id):
-                if cand_id and cand_id != current_id:
-                    cand_name = id_to_portname.get(cand_id, "")
-                    if cand_name and cand_name != port_name:
-                        peer_name = cand_name
-                        break
-            _log.info(f"get_port_config: bypass port={port_name!r} resolved_peer={peer_name!r}")
-
-            # Normalize to actual port numbers for deduplication.
-            # API may return "34" (combined) and/or separate "3"/"4" interfaces for the same pair.
-            def _expand(nm):
-                """Expand a combined port name like '34' into its individual ports ['3','4']."""
-                if nm and nm.isdigit() and len(nm) > 1:
-                    mid = len(nm) // 2 if len(nm) > 2 else 1
-                    return [nm[:mid], nm[mid:]] if len(nm) == 2 else [nm[:mid], nm[mid:]]
-                return [nm] if nm else []
-
-            actual = sorted(set(_expand(port_name) + (_expand(peer_name) if peer_name else [])))
-            key = tuple(actual)
-            if key not in seen_bypass:
-                seen_bypass.add(key)
-                bypass_pairs.append({"name": port_name, "peer": peer_name, "description": description})
-        elif wan_ids:
+        if wan_ids:
             circuits, wan_type = [], ""
             for wid in wan_ids:
                 info = wan_name_map.get(wid, {})
@@ -951,6 +1174,10 @@ def get_port_config(sdk, site_id, element_id):
             circuit = ", ".join(circuits) if circuits else ""
             type_label = _fmt_wan_type(wan_type) if wan_type else used_for.replace("_", " ").title()
             wan_ports.append({"name": port_name, "circuit": circuit, "description": description, "wan_type": type_label})
+        elif used_for in ("wan", "publicwan", "privatewan"):
+            # WAN port without a circuit assigned yet — include it so it shows up in port validation
+            type_label = _fmt_wan_type(used_for) if used_for != "wan" else "WAN"
+            wan_ports.append({"name": port_name, "circuit": "", "description": description, "wan_type": type_label})
         elif used_for == "ha":
             ha_ports.append({"name": port_name, "description": description})
         elif used_for == "lan":
@@ -961,6 +1188,88 @@ def get_port_config(sdk, site_id, element_id):
         f"{len(ha_ports)} HA, {len(bypass_pairs)} bypass pairs"
     )
     return {"wan_ports": wan_ports, "lan_ports": lan_ports, "ha_ports": ha_ports, "bypass_pairs": bypass_pairs}
+
+
+def validate_ports(port_config, network_status):
+    """Join port config with live operational state to produce per-port verdicts."""
+    TIPS = {
+        "WAN":         "Check the physical cable to the ISP/router. Verify the ISP circuit is active and the SFP/connector is fully seated.",
+        "WAN-Bypass":  "Check ISP cable on the WAN side of this bypass pair. Verify the circuit is active and SFP is fully seated.",
+        "LAN-Bypass":  "Check cross-connect cable between this bypass LAN port and the peer ION device's WAN port.",
+        "LAN":         "Check cable to the downstream switch. Verify the VLAN is configured correctly on the switch port.",
+        "HA":          "HA heartbeat link down — check the direct cable between both ION devices on the HA port.",
+    }
+    results = []
+
+    if not network_status:
+        return results
+
+    interfaces = network_status.get("interfaces") or []
+
+    # After provisioning the shell API goes stale. When port_config is empty but
+    # get_network_status already returned categorised interfaces (name/role/up/circuit),
+    # use those directly instead of trying to join against an empty port_config.
+    has_port_config = port_config and any(
+        port_config.get(k) for k in ("wan_ports", "lan_ports", "ha_ports", "bypass_pairs")
+    )
+    if not has_port_config:
+        for iface in interfaces:
+            name = iface.get("name", "")
+            role = iface.get("role", "")
+            is_up = iface.get("up", False)
+            circuit = iface.get("circuit", "")
+            tip = "" if is_up else TIPS.get(role, "Check the physical connection.")
+            results.append({"name": name, "role": role, "circuit": circuit, "up": is_up,
+                            "result": "pass" if is_up else "fail", "tip": tip})
+        return results
+
+    # port_config path: join shell-derived port layout with element interface status
+    status_map = {i.get("name", ""): i.get("up", False) for i in interfaces if i.get("name")}
+
+    def _add(name, role, circuit=""):
+        up = status_map.get(name)
+        if up is None:
+            result, tip = "unknown", ""
+        elif up:
+            result, tip = "pass", ""
+        else:
+            result = "fail"
+            tip = TIPS.get(role, "Check the physical connection.")
+        results.append({"name": name, "role": role, "circuit": circuit, "up": up,
+                        "result": result, "tip": tip})
+
+    for p in (port_config.get("wan_ports") or []):
+        _add(p["name"], "WAN", circuit=p.get("circuit", ""))
+    for bp in (port_config.get("bypass_pairs") or []):
+        _add(bp["wan_port"], "WAN-Bypass", circuit=bp.get("circuit", ""))
+        _add(bp["lan_port"], "LAN-Bypass")
+    for p in (port_config.get("ha_ports") or []):
+        _add(p["name"], "HA")
+    for p in (port_config.get("lan_ports") or []):
+        _add(p["name"], "LAN")
+    return results
+
+
+def get_ha_roles(sdk, site_id):
+    """Return {element_id: 'active'|'backup'} for all elements at a site."""
+    roles = {}
+    try:
+        resp = sdk.get.elements(site_id)
+        for elem in _safe_items(resp):
+            eid = elem.get("id")
+            if not eid:
+                continue
+            cr = (elem.get("cluster_role") or "").lower()
+            sn = elem.get("serial_number", "")
+            if "primary" in cr or "active" in cr:
+                roles[eid] = {"role": "active", "serial": sn}
+            elif "secondary" in cr or "backup" in cr or "standby" in cr:
+                roles[eid] = {"role": "backup", "serial": sn}
+            else:
+                roles[eid] = {"role": "unknown", "serial": sn}
+    except Exception as e:
+        _log.warning(f"get_ha_roles: {e}")
+    return roles
 
 
 # ---------------------------------------------------------------------------
@@ -1219,7 +1528,7 @@ def _poll_once():
 
                 # Model compatibility check — prevents silent hang when models don't match
                 machine = get_machine_by_id(sdk, job["machine_id"])
-                shell = get_elementshell(sdk, job["site_id"], job["element_id"])
+                shell = get_elementshell(sdk, job["site_id"], job.get("element_shell_id") or job["element_id"])
                 if machine and shell:
                     machine_model = (machine.get("model_name") or "").lower().strip()
                     shell_model = (shell.get("model_name") or "").lower().strip()
@@ -1244,8 +1553,11 @@ def _poll_once():
                 success, msg = claim_machine_to_element(sdk, job["machine_id"], shell_id_to_claim)
                 _log.info(f"[{jid}] claim result: success={success} msg={msg}")
                 if success:
+                    shell_target_ver = (shell.get("software_version") or "") if shell else ""
+                    _log.info(f"[{jid}] shell target_version={shell_target_ver!r}")
                     _update_job(job["id"], status="provisioning", step=4,
                                 provisioning_at=now,
+                                target_version=shell_target_ver,
                                 message="Device claimed! Waiting for site provisioning to complete…",
                                 last_checked=now)
                     _audit(job["id"], "Device claimed → provisioning",
@@ -1323,15 +1635,16 @@ def _poll_once():
                 provisioned, state = check_machine_provisioned(sdk, machine_id)
                 _log.info(f"[{jid}] provisioning check: provisioned={provisioned} state={state!r}")
                 if provisioned:
-                    # Prefer element_id from the machine record (set by controller after provisioning).
-                    # Fall back to job["element_id"] which stores the shell's element entity ID
-                    # (populated at job creation from elementshell.element_id — distinct from the
-                    # shell's own ID stored in element_shell_id).
-                    machine_elem_id = (machine.get("element_id") if machine else None) or job.get("element_id")
-                    _log.info(f"[{jid}] provisioning→upgrading (machine_element_id={machine_elem_id!r})")
+                    # state is 'claimed:<em_element_id>' — extract the real element ID.
+                    # Fall back to the shell's pre-assigned element_id if parsing fails.
+                    em_id_from_state = state.split(":", 1)[1] if ":" in state else ""
+                    machine_elem_id = em_id_from_state or job.get("element_id")
+                    target_ver_init = job.get("target_version") or ""
+                    _log.info(f"[{jid}] provisioning→upgrading (machine_element_id={machine_elem_id!r}) target_version={target_ver_init!r}")
                     _update_job(job["id"], status="upgrading", step=5,
                                 message="Device provisioned — checking software version…",
                                 upgrading_at=now, machine_element_id=machine_elem_id,
+                                target_version=target_ver_init,
                                 last_checked=now)
                     _audit(job["id"], "Provisioning complete → upgrading",
                            api="GET /sdwan/v2.0/api/machines/{id}", result="ok",
@@ -1347,199 +1660,204 @@ def _poll_once():
 
             elif job["status"] == "upgrading":
                 _log.info(f"[{jid}] POLL: entering upgrading block")
+                now_dt = datetime.now(timezone.utc)
                 elapsed_upgrading = 0
                 if job.get("upgrading_at"):
                     try:
                         started = datetime.fromisoformat(job["upgrading_at"].replace("Z", "+00:00"))
-                        elapsed_upgrading = (datetime.now(timezone.utc) - started).total_seconds()
+                        elapsed_upgrading = (now_dt - started).total_seconds()
                     except Exception:
                         pass
 
                 machine_elem_id = job.get("machine_element_id")
-                machine = None
                 if not machine_elem_id:
                     machine = get_machine_by_id(sdk, job["machine_id"])
                     if machine:
-                        # Prefer element_id from the machine record (set by controller after provisioning).
-                        # Fall back to job["element_id"] which is the shell's element entity ID
-                        # (elementshell.element_id, not the shell's own ID — those are now separate).
-                        machine_elem_id = machine.get("element_id") or job.get("element_id")
+                        machine_elem_id = machine.get("element_id")
                         if machine_elem_id:
                             _update_job(job["id"], machine_element_id=machine_elem_id, last_checked=now)
-
                 if not machine_elem_id:
-                    if elapsed_upgrading > UPGRADE_TIMEOUT:
-                        _log.info(f"[{jid}] upgrading→version_check (no element_id, timed out)")
-                        _update_job(job["id"], status="version_check", step=5,
-                                    version_check_at=now,
-                                    message="Verifying device status…",
-                                    last_checked=now)
-                    else:
-                        _update_job(job["id"],
-                                    message="Waiting for element to be fully registered…",
-                                    last_checked=now)
+                    _update_job(job["id"],
+                                message="Waiting for device element ID to be registered — do not unplug the device…",
+                                last_checked=now)
                     continue
 
-                elem_online, _elem_state = get_element_operational_status(sdk, job["site_id"], machine_elem_id)
-                # Fallback: if the element-status API fails (e.g. element not yet visible), check
-                # machine connectivity directly — avoids getting stuck when the API returns 404.
-                if not elem_online and _elem_state.lower() in ("status unavailable", "unknown"):
-                    if machine is None:
-                        machine = get_machine_by_id(sdk, job["machine_id"])
-                    if machine and machine.get("connected"):
-                        elem_online = True
-                        _elem_state = "Connected"
-                        _log.info(f"[{jid}] element-status unavailable — machine is connected, treating as online")
-                upgrade_done, upgrade_msg, from_ver, to_ver = get_software_upgrade_status(
-                    sdk, job["site_id"], machine_elem_id)
-                _log.info(f"[{jid}] upgrading: done={upgrade_done} online={elem_online} "
-                          f"msg={upgrade_msg!r} from={from_ver!r} to={to_ver!r} "
-                          f"elapsed={elapsed_upgrading:.0f}s")
-
                 updates = {"last_checked": now}
-                if from_ver and not job.get("from_version"):
-                    updates["from_version"] = from_ver
-                if to_ver and not job.get("to_version"):
-                    updates["to_version"] = to_ver
 
-                if upgrade_done and elem_online:
-                    # Software done AND device is back online — safe to advance.
-                    # Do NOT advance when device is offline: the "done" signal may come
-                    # from a 502 fallback ("assuming current"), not a real API response.
-                    # Wait for the device to reconnect before moving on.
-                    _log.info(f"[{jid}] upgrading→version_check (done + online)")
-                    updates.update(status="version_check", step=5,
-                                   version_check_at=now,
-                                   upgrade_phase=3,
-                                   message="Software upgrade complete — verifying running version…")
-                    _audit(job["id"], "Upgrade complete → version check",
-                           api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}/software",
-                           result="ok", detail=upgrade_msg[:200])
-                elif elapsed_upgrading > UPGRADE_TIMEOUT:
-                    _log.info(f"[{jid}] upgrading→version_check (timed out after {elapsed_upgrading:.0f}s)")
-                    updates.update(status="version_check", step=5,
-                                   version_check_at=now,
-                                   upgrade_phase=3,
-                                   message="Software upgrade timed out — verifying version and device status…")
-                    _audit(job["id"], "Upgrade timed out → version check",
-                           api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}/software",
-                           result="err", detail=f"elapsed={elapsed_upgrading:.0f}s msg={upgrade_msg[:100]}")
-                elif elem_online:
-                    # Device is already online but software/status still shows an incomplete
-                    # state (commonly "pending" — scheduled but not yet downloading). An online
-                    # device that isn't actively downloading or rebooting is likely already at the
-                    # correct version; advance after a short grace period so the controller catches up.
-                    actively = ("downloading" in upgrade_msg.lower() or
-                                "rebooting"   in upgrade_msg.lower() or
-                                "in progress" in upgrade_msg.lower())
-                    if not actively and elapsed_upgrading > 10:
-                        _log.info(f"[{jid}] upgrading→version_check (device online, no active "
-                                  f"upgrade detected after {elapsed_upgrading:.0f}s)")
-                        updates.update(status="version_check", step=5,
-                                       version_check_at=now,
-                                       upgrade_phase=3,
-                                       message="Device online — verifying software version…")
-                        _audit(job["id"], "Device online, no active upgrade → version check",
-                               api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}/software",
-                               result="ok", detail=f"elapsed={elapsed_upgrading:.0f}s msg={upgrade_msg[:100]}")
-                    elif actively:
-                        msg = upgrade_msg or "Downloading and installing software update…"
-                        phase = 2 if "rebooting" in msg.lower() else 1
-                        updates["message"] = msg
-                        updates["upgrade_phase"] = phase
-                    else:
-                        # Online but no active upgrade signal in the initial window — neutral state
-                        updates["message"] = "Device online — checking software status…"
-                        updates["upgrade_phase"] = 1
-                else:
-                    # Device is offline. The controller may cache stale upgrade states
-                    # (e.g. "downloading") after a device disconnects — don't show
-                    # "Installing software update" when the device is actually offline.
-                    if "rebooting" in upgrade_msg.lower():
-                        updates["message"] = upgrade_msg
-                        updates["upgrade_phase"] = 2
-                    else:
-                        updates["message"] = f"Device offline — waiting to reconnect ({_elem_state})…"
-                        updates["upgrade_phase"] = 3
+                target_ver = job.get("target_version") or ""
 
-                _update_job(job["id"], **updates)
+                # upgrade_phase sub-states:
+                #   0 = wait for device to be steadily online (3 consecutive polls = 30s) before doing anything
+                #   1 = version check / upgrade in progress (device is online)
+                #   2 = device went offline/rebooting — ONLY poll online, never call upgrade APIs (stale cache)
+                #   3 = version matched, 30s stability timer before advancing to fabric_check
+                upgrade_phase = job.get("upgrade_phase") or 0
+                online_consecutive = job.get("online_consecutive") or 0
+                ONLINE_STEADY_COUNT = 3  # 3 × 10s = 30s steady
 
-            elif job["status"] == "version_check":
-                elapsed_vc = 0
-                if job.get("version_check_at"):
-                    try:
-                        started = datetime.fromisoformat(job["version_check_at"].replace("Z", "+00:00"))
-                        elapsed_vc = (datetime.now(timezone.utc) - started).total_seconds()
-                    except Exception:
-                        pass
-
-                # machine_element_id is the authoritative element entity ID set during provisioning.
-                # element_id is the shell's entity ID (elementshell.element_id) set at job creation —
-                # a valid fallback since both refer to the same element entity (not the shell's own ID).
-                machine_elem_id = job.get("machine_element_id") or job.get("element_id")
-                version, ver_msg = get_current_software_version(sdk, machine_elem_id)
+                # Online check — used in all phases
                 is_online, online_state = get_element_operational_status(sdk, job["site_id"], machine_elem_id)
-                # If element-status API fails but machine is connected, treat as online
                 if not is_online and online_state.lower() in ("status unavailable", "unknown"):
                     chk_machine = get_machine_by_id(sdk, job["machine_id"])
                     if chk_machine and chk_machine.get("connected"):
                         is_online = True
                         online_state = "Connected"
-                        _log.info(f"[{jid}] version_check: element-status unavailable — machine connected")
-                _log.info(f"[{jid}] version_check: version={version!r} online={is_online} "
-                          f"state={online_state!r} elapsed={elapsed_vc:.0f}s")
 
-                updates = {"last_checked": now}
-                if version and not job.get("running_version"):
-                    updates["running_version"] = version
+                _log.info(f"[{jid}] upgrading: phase={upgrade_phase} online={is_online} "
+                          f"consecutive={online_consecutive} elapsed={elapsed_upgrading:.0f}s")
 
-                expected = job.get("to_version") or ""
-                no_upgrade_needed = not expected
-                api_unavailable = online_state in ("Status unavailable", "status unavailable")
-                version_ok = (not expected) or (version and version == expected) or elapsed_vc > VERSION_CHECK_TIMEOUT
-
-                # When no upgrade was triggered and the element-status API is failing,
-                # don't wait the full VERSION_CHECK_TIMEOUT — 30s is enough to confirm
-                # the device didn't actually reboot for an upgrade.
-                fast_exit = no_upgrade_needed and api_unavailable and elapsed_vc > 30
-
-                if version_ok and (is_online or fast_exit):
-                    _log.info(f"[{jid}] version_check→fabric_check"
-                              + (" (fast-exit: no upgrade needed)" if fast_exit else ""))
-                    ver_display = f"Running {version}" if version else "Software verified"
-                    updates.update(status="fabric_check", step=6,
-                                   upgrade_phase=5,
-                                   fabric_check_at=now,
-                                   message=f"{ver_display} — checking SDWAN Fabric connectivity…")
-                    _audit(job["id"], "Version verified → fabric check",
-                           api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}",
-                           result="ok",
-                           detail=f"version={version} online={is_online} elapsed={elapsed_vc:.0f}s")
-                elif elapsed_vc > VERSION_CHECK_TIMEOUT:
-                    _log.info(f"[{jid}] version_check→fabric_check (timed out)")
-                    updates.update(status="fabric_check", step=6,
-                                   upgrade_phase=5,
-                                   fabric_check_at=now,
-                                   message="Device online — checking SDWAN Fabric connectivity…")
-                    _audit(job["id"], "Version check timed out → fabric check",
-                           api="GET /sdwan/v2.0/api/sites/{sid}/elements/{eid}",
-                           result="err",
-                           detail=f"elapsed={elapsed_vc:.0f}s version={version}")
-                else:
-                    if not is_online:
-                        if expected:
-                            updates["message"] = f"Device rebooting after upgrade ({online_state})… {ver_msg}"
+                if upgrade_phase == 0:
+                    # Wait for 3 consecutive online polls before checking version
+                    if is_online:
+                        online_consecutive += 1
+                        updates["online_consecutive"] = online_consecutive
+                        if online_consecutive >= ONLINE_STEADY_COUNT:
+                            _log.info(f"[{jid}] upgrading: device steady online → checking version")
+                            updates["upgrade_phase"] = 1
+                            updates["online_consecutive"] = 0
+                            updates["message"] = "Device online — checking software version…"
                         else:
-                            updates["message"] = f"Device offline — waiting to reconnect ({online_state})…"
-                        updates["upgrade_phase"] = 3
-                    elif version and expected and version != expected:
-                        updates["message"] = f"Waiting for expected version {expected} (currently {version})…"
-                        updates["upgrade_phase"] = 4
+                            updates["message"] = f"Device online — confirming stability… ({online_consecutive}/{ONLINE_STEADY_COUNT})"
                     else:
-                        updates["message"] = f"{ver_msg} — Device coming back online…"
-                        updates["upgrade_phase"] = 4
+                        updates["online_consecutive"] = 0
+                        updates["message"] = "Waiting for device to come online…"
+
+                elif upgrade_phase == 1:
+                    # Device is online — compare version, show upgrade progress
+                    if is_online:
+                        current_ver, _ = get_current_software_version(sdk, machine_elem_id)
+                        version_match = bool(
+                            current_ver and target_ver
+                            and _version_gte(current_ver.strip(), target_ver.strip())
+                        )
+                        _log.info(f"[{jid}] upgrading: current={current_ver!r} target={target_ver!r} match={version_match}")
+
+                        if version_match:
+                            updates["upgrade_phase"] = 3
+                            updates["version_matched_at"] = now_dt.isoformat()
+                            updates["running_version"] = current_ver
+                            updates["message"] = f"Version confirmed ({current_ver}) — verifying stability…"
+                            _log.info(f"[{jid}] upgrading: version matched → starting 30s stability timer")
+                        else:
+                            # Upgrade API for display messages only — device is online so data is fresh
+                            upg = get_software_upgrade_status(sdk, job["site_id"], machine_elem_id)
+                            upg_state = upg["state"]
+                            upg_msg = _upgrade_state_message(upg)
+                            if upg.get("from_version") and not job.get("from_version"):
+                                updates["from_version"] = upg["from_version"]
+
+                            _log.info(f"[{jid}] upgrading: version mismatch upg_state={upg_state!r} elapsed={elapsed_upgrading:.0f}s")
+
+                            if upg_state == UPG_FAILED:
+                                updates.update(status="upgrade_failed",
+                                               message=f"Software upgrade failed — manual intervention required. {upg_msg}")
+                                _audit(job["id"], "Upgrade FAILED → upgrade_failed",
+                                       api="POST /sdwan/v2.1/api/software/status/query",
+                                       result="err", detail=upg_msg[:200])
+                            elif elapsed_upgrading > UPGRADE_TIMEOUT:
+                                updates.update(status="upgrade_unverified",
+                                               message=(
+                                                   f"Software upgrade has not completed after "
+                                                   f"{int(elapsed_upgrading // 60)} minutes. "
+                                                   "Use Admin Override to force-advance if you are certain the upgrade succeeded."
+                                               ))
+                                _audit(job["id"], "Upgrade timeout → upgrade_unverified",
+                                       api="POST /sdwan/v2.1/api/software/status/query",
+                                       result="err", detail=f"elapsed={elapsed_upgrading:.0f}s")
+                            elif upg_state in (UPG_DOWNLOADING, UPG_PENDING):
+                                updates["message"] = upg_msg or "Downloading software upgrade…"
+                            elif upg_state == UPG_INSTALLING:
+                                updates["message"] = upg_msg or "Installing software upgrade…"
+                            elif upg_state == UPG_REBOOTING:
+                                updates["message"] = upg_msg or "Device rebooting after upgrade…"
+                            elif current_ver and target_ver:
+                                updates["message"] = f"Waiting for version {target_ver} (currently {current_ver})…"
+                            else:
+                                updates["message"] = "Checking software version…"
+                    else:
+                        # Device went offline — move to reconnect-wait phase
+                        # Do NOT call upgrade APIs here: they return stale cached data
+                        _log.info(f"[{jid}] upgrading: device went offline → phase 2 (reconnect wait)")
+                        updates["upgrade_phase"] = 2
+                        updates["online_consecutive"] = 0
+                        updates["reconnect_wait_at"] = now_dt.isoformat()
+                        updates["message"] = "Device offline — waiting to reconnect after upgrade…"
+
+                elif upgrade_phase == 2:
+                    # Device is offline/rebooting — ONLY check online status, no upgrade APIs
+                    elapsed_reconnect = 0
+                    if job.get("reconnect_wait_at"):
+                        try:
+                            rw_at = datetime.fromisoformat(job["reconnect_wait_at"].replace("Z", "+00:00"))
+                            elapsed_reconnect = (now_dt - rw_at).total_seconds()
+                        except Exception:
+                            pass
+
+                    RECONNECT_TIMEOUT = 600  # 10 minutes
+
+                    if is_online:
+                        _log.info(f"[{jid}] upgrading: device reconnected after {elapsed_reconnect:.0f}s → phase 0")
+                        updates["upgrade_phase"] = 0
+                        updates["online_consecutive"] = 0
+                        updates["message"] = "Device reconnected — confirming stability…"
+                    elif elapsed_reconnect > RECONNECT_TIMEOUT:
+                        updates.update(status="upgrade_unverified",
+                                       message=(
+                                           f"Device did not reconnect after {int(elapsed_reconnect // 60)} minutes. "
+                                           "Use Admin Override to force-advance if you are certain the upgrade succeeded."
+                                       ))
+                        _audit(job["id"], "Reconnect timeout → upgrade_unverified",
+                               api="GET /sdwan/v2.0/api/elements/{eid}/status",
+                               result="err", detail=f"elapsed_reconnect={elapsed_reconnect:.0f}s")
+                    else:
+                        r_str = f"{int(elapsed_reconnect)}s" if elapsed_reconnect < 60 else f"{int(elapsed_reconnect//60)}m {int(elapsed_reconnect%60)}s"
+                        updates["message"] = f"Device offline — waiting to reconnect… ({r_str})"
+
+                elif upgrade_phase == 3:
+                    # Version matched — 30s stability timer
+                    current_ver = job.get("running_version", "")
+                    if is_online:
+                        try:
+                            matched_at = datetime.fromisoformat(job["version_matched_at"].replace("Z", "+00:00"))
+                            elapsed_stable = (now_dt - matched_at).total_seconds()
+                        except Exception:
+                            elapsed_stable = 0
+
+                        if elapsed_stable >= 30:
+                            _log.info(f"[{jid}] upgrading→fabric_check (version stable {elapsed_stable:.0f}s)")
+                            updates.update(status="fabric_check", step=6,
+                                           upgrade_phase=5,
+                                           fabric_check_at=now_dt.isoformat(),
+                                           message=f"Software {current_ver} confirmed — checking SDWAN Fabric…")
+                            _audit(job["id"], "Version confirmed → fabric check",
+                                   api="POST /sdwan/v2.1/api/software/current_status/query",
+                                   result="ok",
+                                   detail=f"version={current_ver} stable={elapsed_stable:.0f}s")
+                        else:
+                            updates["message"] = (
+                                f"Version confirmed ({current_ver}) — "
+                                f"verifying stability… ({int(30 - elapsed_stable)}s remaining)"
+                            )
+                    else:
+                        # Went offline during stability timer — restart reconnect wait
+                        _log.info(f"[{jid}] upgrading: device offline during stability check → phase 2")
+                        updates["upgrade_phase"] = 2
+                        updates["online_consecutive"] = 0
+                        updates["version_matched_at"] = None
+                        updates["reconnect_wait_at"] = now_dt.isoformat()
+                        updates["message"] = "Device offline — waiting to reconnect…"
 
                 _update_job(job["id"], **updates)
+
+            elif job["status"] == "version_check":
+                # Version checking is now handled entirely within the upgrading state.
+                # Any job that arrived here from a prior code version advances immediately.
+                _log.info(f"[{jid}] version_check: legacy state — transitioning to fabric_check")
+                _update_job(job["id"], status="fabric_check", step=6,
+                            upgrade_phase=5,
+                            fabric_check_at=datetime.now(timezone.utc).isoformat(),
+                            message="Checking SDWAN Fabric connectivity…",
+                            last_checked=now)
 
             elif job["status"] == "fabric_check":
                 elapsed_fabric = 0
@@ -1550,34 +1868,50 @@ def _poll_once():
                     except Exception:
                         pass
 
-                # Use the actual element entity ID for network/fabric APIs, not the shell's own ID.
-                element_id_for_check = job.get("machine_element_id") or job.get("element_id")
-                net_status = get_network_status(sdk, job["site_id"], element_id_for_check)
-                _log.info(f"[{jid}] fabric_check: all_up={net_status['all_up']} "
-                          f"elapsed={elapsed_fabric:.0f}s msg={net_status['message']!r}")
+                element_id_for_check = job.get("machine_element_id")
+                if not element_id_for_check:
+                    _update_job(job["id"], message="Waiting for device element ID to be registered…", last_checked=now)
+                    continue
+                elapsed_str = f"{int(elapsed_fabric)}s" if elapsed_fabric < 60 else f"{int(elapsed_fabric//60)}m {int(elapsed_fabric%60)}s"
 
-                if net_status["all_up"]:
-                    _log.info(f"[{jid}] fabric_check→assigned")
+                net_status = get_network_status(sdk, job["site_id"], element_id_for_check)
+                raw_ok = net_status.get("raw_ok", False)
+                total_links = net_status["fabric"][0]["count"] + net_status["fabric"][1]["count"]
+
+                _log.info(f"[{jid}] fabric_check: raw_ok={raw_ok} total_links={total_links} "
+                          f"all_up={net_status['all_up']} elapsed={elapsed_str}")
+
+                if raw_ok and total_links > 0:
+                    _log.info(f"[{jid}] fabric_check→assigned (API returned tunnel data)")
                     _update_job(job["id"], status="assigned", step=6,
                                 message=f"Installation complete! {net_status['message']}",
-                                network_status=net_status,
-                                assigned_at=now, last_checked=now)
+                                network_status=net_status, assigned_at=now, last_checked=now)
                     _audit(job["id"], "Fabric check passed → assigned",
                            api="GET /sdwan/v2.0/api/vpnlinks/query", result="ok",
-                           detail=net_status.get("message", "")[:200])
-                elif elapsed_fabric > FABRIC_TIMEOUT:
-                    _log.info(f"[{jid}] fabric_check→assigned (timed out after {elapsed_fabric:.0f}s)")
+                           detail=f"elapsed={elapsed_str} total_links={total_links} {net_status.get('message','')[:100]}")
+
+                elif elapsed_fabric > 90:
+                    _log.info(f"[{jid}] fabric_check→assigned (90s timeout at {elapsed_str})")
                     _update_job(job["id"], status="assigned", step=6,
-                                message="Installation complete! Some tunnels are still initializing and will come up automatically — device is online and assigned.",
-                                network_status=net_status,
-                                assigned_at=now, last_checked=now)
-                    _audit(job["id"], "Fabric check timed out → assigned",
+                                message="Installation complete! Device is connected — tunnels will initialize automatically.",
+                                network_status=net_status, assigned_at=now, last_checked=now)
+                    _audit(job["id"], "Fabric check timeout → assigned",
                            api="GET /sdwan/v2.0/api/vpnlinks/query", result="err",
-                           detail=f"elapsed={elapsed_fabric:.0f}s tunnels={net_status.get('message','')[:100]}")
+                           detail=f"elapsed={elapsed_str} raw_ok={raw_ok} total_links={total_links}")
+
                 else:
-                    elapsed_str = f"{int(elapsed_fabric)}s" if elapsed_fabric < 60 else f"{int(elapsed_fabric/60)}m {int(elapsed_fabric%60)}s"
-                    _update_job(job["id"], message=f"{net_status['message']} ({elapsed_str} elapsed)",
-                                network_status=net_status, last_checked=now)
+                    is_online, online_state = get_element_operational_status(
+                        sdk, job["site_id"], element_id_for_check)
+                    if not is_online and online_state.lower() in ("status unavailable", "unknown"):
+                        chk_machine = get_machine_by_id(sdk, job["machine_id"])
+                        if chk_machine and chk_machine.get("connected"):
+                            is_online = True
+                    if not raw_ok:
+                        msg = f"Network API not yet available — device is {'online' if is_online else 'offline'} ({elapsed_str})…"
+                    else:
+                        msg = f"Waiting for tunnel data — no links returned yet ({elapsed_str})…"
+                    _log.info(f"[{jid}] fabric_check: retrying — {msg}")
+                    _update_job(job["id"], message=msg, last_checked=now)
 
         except Exception as e:
             _log.exception(f"[{jid}] poll error: {e}")
@@ -1715,22 +2049,149 @@ def recheck_network(job_id):
     with _jobs_lock:
         if job_id not in _jobs:
             return jsonify({"error": "Job not found"}), 404
-        job = _jobs[job_id]
+        job = dict(_jobs[job_id])
         if job["status"] not in ("assigned", "failed"):
             return jsonify({"error": f"Job is in '{job['status']}' — can only recheck from assigned or failed"}), 400
+
+    try:
+        sdk = get_sdk()
+        site_id = job["site_id"]
+        shell_id = job.get("element_shell_id") or job.get("element_id")
+        elem_id = job.get("machine_element_id")
+
+        # Resolve element ID the same way validate-ports does
+        if not elem_id:
+            serial = (job.get("serial_number") or "").lower()
+            try:
+                for elem in (_safe_items(sdk.get.elements(site_id)) or []):
+                    eid = elem.get("id")
+                    if not eid:
+                        continue
+                    if not elem_id:
+                        elem_id = eid
+                    if serial and (elem.get("serial_number") or "").lower() == serial:
+                        elem_id = eid
+                        break
+            except Exception as e:
+                _log.warning(f"recheck_network: elements lookup failed: {e}")
+            if not elem_id:
+                elem_id = job.get("element_id") or shell_id
+
+        net_status = get_network_status(sdk, site_id, elem_id)
+        port_config = get_port_config(sdk, site_id, shell_id)
+        validation = validate_ports(port_config, net_status)
+        all_pass = all(v["result"] == "pass" for v in validation) if validation else False
+        has_fail = any(v["result"] == "fail" for v in validation)
+
         now = datetime.now(timezone.utc).isoformat()
-        job.update(
-            status="fabric_check",
-            step=6,
-            fabric_check_at=now,
-            message="Re-checking network connectivity…",
-            network_status=None,
-            last_checked=now,
-        )
-        result = dict(job)
-    save_jobs()
-    start_poller()
-    return jsonify({"ok": True, "job": result})
+        _update_job(job["id"], network_status=net_status, last_checked=now)
+        save_jobs()
+
+        return jsonify({
+            "ok": True,
+            "network_status": net_status,
+            "port_validation": {"ok": True, "validation": validation, "all_pass": all_pass, "has_fail": has_fail},
+        })
+    except Exception as e:
+        reset_sdk()
+        return jsonify({"ok": False, "error": str(e)}), 200
+
+
+@app.route("/api/jobs/<job_id>/validate-ports", methods=["GET"])
+def validate_job_ports(job_id):
+    with _jobs_lock:
+        if job_id not in _jobs:
+            return jsonify({"error": "Job not found"}), 404
+        job = dict(_jobs[job_id])
+    try:
+        sdk = get_sdk()
+        site_id = job["site_id"]
+        shell_id = job.get("element_shell_id") or job.get("element_id")
+
+        # After provisioning, the shell API goes stale. Look up the actual provisioned
+        # element(s) for the site — same approach used by fabric_check and get_ha_roles.
+        # Match by serial when possible; fall back to first element found.
+        elem_id = None
+        serial = (job.get("serial_number") or "").lower()
+        try:
+            for elem in (_safe_items(sdk.get.elements(site_id)) or []):
+                eid = elem.get("id")
+                if not eid:
+                    continue
+                if not elem_id:
+                    elem_id = eid  # first element as fallback
+                if serial and (elem.get("serial_number") or "").lower() == serial:
+                    elem_id = eid
+                    break
+            if elem_id:
+                _log.info(f"validate_job_ports: resolved elem_id={elem_id!r} via sdk.get.elements (serial={serial!r})")
+        except Exception as e:
+            _log.warning(f"validate_job_ports: elements lookup failed: {e}")
+
+        if not elem_id:
+            elem_id = job.get("machine_element_id") or job.get("element_id") or shell_id
+
+        _log.info(f"validate_job_ports: shell_id={shell_id!r} elem_id={elem_id!r}")
+        port_config = get_port_config(sdk, site_id, shell_id)
+        network_status = get_network_status(sdk, site_id, elem_id)
+        _log.info(f"validate_job_ports: port_config={port_config}")
+        _log.info(f"validate_job_ports: network_status interfaces={network_status.get('interfaces') if network_status else None}")
+        validation = validate_ports(port_config, network_status)
+        all_pass = all(v["result"] == "pass" for v in validation) if validation else False
+        has_fail = any(v["result"] == "fail" for v in validation)
+        return jsonify({"ok": True, "validation": validation, "all_pass": all_pass, "has_fail": has_fail})
+    except Exception as e:
+        reset_sdk()
+        return jsonify({"ok": False, "error": str(e), "validation": []}), 200
+
+
+@app.route("/api/sites/<site_id>/shells", methods=["GET"])
+def get_site_shells(site_id):
+    """Return unclaimed element shells for a site."""
+    try:
+        sdk = get_sdk()
+        shells = get_available_shells_for_site(sdk, site_id)
+        return jsonify({"ok": True, "shells": shells, "ha_site": len(shells) >= 2})
+    except Exception as e:
+        reset_sdk()
+        return jsonify({"ok": False, "error": str(e), "shells": []}), 200
+
+
+@app.route("/api/sites/<site_id>/shells-with-ports", methods=["GET"])
+def get_site_shells_with_ports(site_id):
+    """Return unclaimed shells plus their port configs — used to build the HA cabling checklist."""
+    try:
+        sdk = get_sdk()
+        shells = get_available_shells_for_site(sdk, site_id)
+        result = []
+        for sh in shells:
+            shell_id = sh.get("id")
+            sn = sh.get("serial_number", "")
+            try:
+                ports = get_port_config(sdk, site_id, shell_id)
+            except Exception:
+                ports = {"wan_ports": [], "lan_ports": [], "ha_ports": [], "bypass_pairs": []}
+            result.append({"shell_id": shell_id, "serial_number": sn, "ports": ports})
+        return jsonify({"ok": True, "shells": result, "ha_site": len(result) >= 2})
+    except Exception as e:
+        reset_sdk()
+        return jsonify({"ok": False, "error": str(e), "shells": []}), 200
+
+
+@app.route("/api/jobs/<job_id>/ha-status", methods=["GET"])
+def get_job_ha_status(job_id):
+    """Return HA role (active/backup) for each element at the job's site."""
+    with _jobs_lock:
+        if job_id not in _jobs:
+            return jsonify({"error": "Job not found"}), 404
+        job = dict(_jobs[job_id])
+    try:
+        sdk = get_sdk()
+        roles = get_ha_roles(sdk, job["site_id"])
+        return jsonify({"ok": True, "roles": roles})
+    except Exception as e:
+        reset_sdk()
+        return jsonify({"ok": False, "error": str(e), "roles": {}}), 200
 
 
 # ---------------------------------------------------------------------------
@@ -1812,6 +2273,7 @@ def create_job():
         "upgrading_at": None,
         "fabric_check_at": None,
         "machine_element_id": None,
+        "saw_active_upgrade": False,
         "network_status": None,
         "last_checked": None,
         "audit_log": [],
@@ -2108,4 +2570,4 @@ if __name__ == "__main__":
     cert = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cert.crt")
     key = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cert.key")
     ssl_ctx = (cert, key) if os.path.exists(cert) else None
-    app.run(host="0.0.0.0", port=5002, debug=True, ssl_context=ssl_ctx)
+    app.run(host="0.0.0.0", port=5002, debug=False, ssl_context=ssl_ctx)
