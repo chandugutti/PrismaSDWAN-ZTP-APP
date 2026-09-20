@@ -2718,9 +2718,153 @@ function computeCrossConnects(pc1, pc2) {
   return { d1LanToPeerWan, d2LanToPeerWan, d1WanIsCrossTarget, d2WanIsCrossTarget, haPairs };
 }
 
+function buildHADiagramSVG(pc1, pc2, cc) {
+  const makePorts = (pc, crossTargets, lanToPeer) => {
+    const rows = [];
+    (pc.bypass_pairs || []).forEach(bp => {
+      rows.push({ type: 'isp',     name: bp.wan_port, circuit: bp.circuit || '', peer: null });
+      rows.push({ type: 'cc-send', name: bp.lan_port, circuit: bp.circuit || '', peer: lanToPeer[bp.lan_port] || null });
+    });
+    (pc.wan_ports || []).forEach(p => {
+      rows.push({ type: crossTargets.has(p.name) ? 'cc-recv' : 'isp', name: p.name, circuit: p.circuit || '', peer: null });
+    });
+    (pc.ha_ports || []).forEach(p => rows.push({ type: 'ha',  name: p.name, circuit: '', peer: null }));
+    (pc.lan_ports || []).forEach(p => rows.push({ type: 'lan', name: p.name, circuit: '', peer: null }));
+    return rows;
+  };
+
+  const d1 = makePorts(pc1, cc.d1WanIsCrossTarget, cc.d1LanToPeerWan);
+  const d2 = makePorts(pc2, cc.d2WanIsCrossTarget, cc.d2LanToPeerWan);
+  if (!d1.length && !d2.length) return '';
+
+  // Layout constants
+  const RH = 22, HDR = 18, PAD_BOT = 4, BW = 116, GAP = 68;
+  const BX1 = 2, BX2 = BX1 + BW + GAP;
+  const BY = 32;  // box top (space above for ISP labels)
+  const bh = HDR + Math.max(d1.length, d2.length) * RH + PAD_BOT;
+  const SW = BX2 + BW + 2;
+  const SH = BY + bh + 30;
+  const d1R = BX1 + BW, d2L = BX2;
+
+  const pY = (list, idx) => BY + HDR + idx * RH + RH / 2;
+
+  const C = { isp: '#ea580c', 'cc-send': '#7c3aed', 'cc-recv': '#7c3aed', ha: '#b91c1c', lan: '#16a34a' };
+  const LBL = { isp: 'WAN', 'cc-send': 'CC', 'cc-recv': 'CC', ha: 'HA', lan: 'LAN' };
+  const BG  = { isp: '#fff7ed', 'cc-send': '#ede9fe', 'cc-recv': '#ede9fe', ha: '#fef2f2', lan: '#f0fdf4' };
+
+  let s = '';
+
+  // ── ISP labels above boxes ─────────────────────────────────────────────────
+  const d1Isp = d1.filter(p => p.type === 'isp').map(p => p.circuit || 'ISP');
+  const d2Isp = d2.filter(p => p.type === 'isp').map(p => p.circuit || 'ISP');
+  const ispLabel = (circuits, cx) => {
+    const txt = circuits.slice(0, 2).join(' / ').substring(0, 18) || 'ISP';
+    return `<text x="${cx}" y="${BY - 18}" text-anchor="middle" font-size="7" font-weight="600" fill="#ea580c" font-family="-apple-system,sans-serif">${esc(txt)}</text>
+      <line x1="${cx}" y1="${BY - 14}" x2="${cx}" y2="${BY}" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#arrowISP)"/>`;
+  };
+  if (d1Isp.length) s += ispLabel(d1Isp, BX1 + BW / 2);
+  if (d2Isp.length) s += ispLabel(d2Isp, BX2 + BW / 2);
+
+  // ── LAN labels below boxes ─────────────────────────────────────────────────
+  const d1HasLan = d1.some(p => p.type === 'lan');
+  const d2HasLan = d2.some(p => p.type === 'lan');
+  const lanLabel = (cx) =>
+    `<line x1="${cx}" y1="${BY + bh}" x2="${cx}" y2="${SH - 14}" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="3,2"/>
+     <text x="${cx}" y="${SH - 4}" text-anchor="middle" font-size="7" fill="#16a34a" font-family="-apple-system,sans-serif">▼ Switch</text>`;
+  if (d1HasLan) s += lanLabel(BX1 + BW / 2);
+  if (d2HasLan) s += lanLabel(BX2 + BW / 2);
+
+  // ── Cross-connect lines (drawn behind boxes) ───────────────────────────────
+  d1.forEach((p, i) => {
+    if (p.type !== 'cc-send' || !p.peer) return;
+    const j = d2.findIndex(q => q.name === p.peer && q.type === 'cc-recv');
+    if (j < 0) return;
+    const y1 = pY(d1, i), y2 = pY(d2, j);
+    const mx = (d1R + d2L) / 2, my = (y1 + y2) / 2;
+    s += `<line x1="${d1R}" y1="${y1}" x2="${d2L}" y2="${y2}" stroke="${C['cc-send']}" stroke-width="1.5"/>`;
+    const cshort = (p.circuit || 'CC').substring(0, 12);
+    s += `<text x="${mx}" y="${my - 3}" text-anchor="middle" font-size="6" fill="${C['cc-send']}" font-family="-apple-system,sans-serif">${esc(cshort)}</text>`;
+  });
+  d2.forEach((p, i) => {
+    if (p.type !== 'cc-send' || !p.peer) return;
+    const j = d1.findIndex(q => q.name === p.peer && q.type === 'cc-recv');
+    if (j < 0) return;
+    const y1 = pY(d2, i), y2 = pY(d1, j);
+    const mx = (d1R + d2L) / 2, my = (y1 + y2) / 2;
+    s += `<line x1="${d2L}" y1="${y1}" x2="${d1R}" y2="${y2}" stroke="${C['cc-send']}" stroke-width="1.5"/>`;
+    const cshort = (p.circuit || 'CC').substring(0, 12);
+    s += `<text x="${mx}" y="${my + 8}" text-anchor="middle" font-size="6" fill="${C['cc-send']}" font-family="-apple-system,sans-serif">${esc(cshort)}</text>`;
+  });
+
+  // ── HA heartbeat line ──────────────────────────────────────────────────────
+  const hi1 = d1.findIndex(p => p.type === 'ha');
+  const hi2 = d2.findIndex(p => p.type === 'ha');
+  if (hi1 >= 0 && hi2 >= 0) {
+    const y1 = pY(d1, hi1), y2 = pY(d2, hi2);
+    s += `<line x1="${d1R}" y1="${y1}" x2="${d2L}" y2="${y2}" stroke="${C.ha}" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+    s += `<text x="${(d1R + d2L) / 2}" y="${(y1 + y2) / 2 - 2}" text-anchor="middle" font-size="6" fill="${C.ha}" font-family="-apple-system,sans-serif">Heartbeat</text>`;
+  }
+
+  // ── Device boxes ───────────────────────────────────────────────────────────
+  const box = (bx, label) => `
+    <rect x="${bx}" y="${BY}" width="${BW}" height="${bh}" fill="#f8fafc" rx="5" stroke="#cbd5e1" stroke-width="1.2"/>
+    <rect x="${bx}" y="${BY}" width="${BW}" height="${HDR}" fill="#002748" rx="5"/>
+    <rect x="${bx}" y="${BY + HDR - 5}" width="${BW}" height="5" fill="#002748"/>
+    <text x="${bx + BW / 2}" y="${BY + HDR - 5}" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="-apple-system,sans-serif">${label}</text>`;
+  s += box(BX1, 'Device 1');
+  s += box(BX2, 'Device 2');
+
+  // ── Port rows ──────────────────────────────────────────────────────────────
+  const drawPorts = (ports, isD1) => {
+    const bx = isD1 ? BX1 : BX2;
+    const dotX = isD1 ? d1R : d2L;
+    ports.forEach((p, i) => {
+      const ry = BY + HDR + i * RH;
+      const cy = ry + RH / 2;
+      const c = C[p.type] || '#64748b';
+      s += `<rect x="${bx + 1}" y="${ry}" width="${BW - 2}" height="${RH}" fill="${BG[p.type] || '#f8fafc'}" opacity="0.65"/>`;
+      if (i < ports.length - 1)
+        s += `<line x1="${bx + 4}" y1="${ry + RH}" x2="${bx + BW - 4}" y2="${ry + RH}" stroke="#e2e8f0" stroke-width="0.7"/>`;
+      // port name + type badge
+      s += `<text x="${bx + 5}" y="${cy + 4}" font-size="9" font-weight="700" fill="${c}" font-family="monospace">P${esc(p.name)}</text>`;
+      s += `<text x="${bx + 23}" y="${cy + 4}" font-size="7" font-weight="600" fill="${c}" font-family="-apple-system,sans-serif">${LBL[p.type] || ''}</text>`;
+      const circ = (p.circuit || '').substring(0, 11);
+      if (circ) s += `<text x="${bx + 47}" y="${cy + 4}" font-size="6.5" fill="#64748b" font-family="-apple-system,sans-serif">${esc(circ)}</text>`;
+      // connection dot on box edge
+      if (p.type !== 'isp' && p.type !== 'lan')
+        s += `<circle cx="${dotX}" cy="${cy}" r="2.8" fill="${c}"/>`;
+    });
+  };
+  drawPorts(d1, true);
+  drawPorts(d2, false);
+
+  return `<div style="margin:0 0 14px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+    <div style="background:#f1f5f9;padding:7px 10px;font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;">
+      📡 Connection Diagram
+    </div>
+    <div style="padding:10px 8px 6px;">
+      <svg viewBox="0 0 ${SW} ${SH}" width="100%" style="display:block;" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrowISP" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto">
+            <path d="M0,0 L5,2.5 L0,5 Z" fill="#ea580c"/>
+          </marker>
+        </defs>
+        ${s}
+      </svg>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:9px;color:#64748b;">
+        <span style="color:#ea580c;">■ ISP/WAN</span>
+        <span style="color:#7c3aed;">■ Cross-connect</span>
+        <span style="color:#b91c1c;">■ HA heartbeat</span>
+        <span style="color:#16a34a;">■ LAN</span>
+      </div>
+    </div>
+  </div>`;
+}
+
 function buildTwoDeviceLayout(sn1, pc1, pc2, cc) {
   const d2Sn = haSerials[1] || (haShells[1] || {}).serial_number || '';
-  return buildDeviceCard(1, sn1, true, pc1, cc) + buildDeviceCard(2, d2Sn, true, pc2, cc);
+  const diagram = buildHADiagramSVG(pc1, pc2, cc);
+  return diagram + buildDeviceCard(1, sn1, true, pc1, cc) + buildDeviceCard(2, d2Sn, true, pc2, cc);
 }
 
 function buildDeviceCard(devNum, sn, confirmed, pc, cc) {
