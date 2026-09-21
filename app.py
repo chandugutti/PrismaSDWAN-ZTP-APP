@@ -725,146 +725,77 @@ def get_network_status(sdk, site_id, element_id):
         return name
 
     # ------------------------------------------------------------------
-    # 1. VPN links — SD-WAN fabric tunnels
+    # 1. Secure Fabric — topology/links/query for anynet types
     # ------------------------------------------------------------------
     vpn_up = vpn_total = 0
-    vpn_links_raw = []
+    vpn_peers_unique = []
 
-    # Try v2.0 vpnlinks/query
-    vpn_data = _rest("POST", "/sdwan/v2.0/api/vpnlinks/query",
-                     {"query": {"site_id": {"in": [site_id]}}})
-    if vpn_data:
-        vpn_links_raw = vpn_data.get("items", [])
+    fabric_data = _rest("POST", "/sdwan/v2.0/api/topology/links/query", {
+        "limit": 1000,
+        "dest_page": 1,
+        "query_params": {
+            "or": {
+                "source_site_id": {"in": [site_id]},
+                "target_site_id": {"in": [site_id]},
+            },
+            "type": {"in": ["public-anynet", "private-anynet"]},
+        },
+    })
+    fabric_links = (fabric_data or {}).get("items", [])
+    vpn_total = len(fabric_links)
+    _log.info(f"get_network_status: site={site_id} element={element_id} fabric_links={vpn_total}")
 
-    _log.info(f"get_network_status: site={site_id} element={element_id} vpn_links={len(vpn_links_raw)}")
+    seen_peers = set()
+    for link in fabric_links:
+        if (link.get("status") or "").lower() == "up":
+            vpn_up += 1
+            peer = (
+                link.get("target_site_name") if link.get("source_site_id") == site_id
+                else link.get("source_site_name")
+            ) or ""
+            if peer and peer not in seen_peers:
+                seen_peers.add(peer)
+                vpn_peers_unique.append(peer)
 
-    # Fallback: topology links query when vpnlinks/query returned nothing
-    if not vpn_links_raw:
-        topo = _topology_links_query(sdk, site_id)
-        for link in topo:
-            if link.get("type") in ("public-anynet", "private-anynet"):
-                vpn_links_raw.append({
-                    "id": link.get("id"),
-                    "source_site_id": link.get("source_site_id"),
-                    "dest_site_id": link.get("target_site_id"),
-                    "state": (link.get("status") or "").lower(),
-                    "_topo": True,
-                })
+    # ------------------------------------------------------------------
+    # 2. Standard VPN — separate topology/links/query for servicelink type
+    # ------------------------------------------------------------------
+    svpn_up = svpn_total = 0
 
-    _UP_STATES = {"up", "active", "established", "connected", "online"}
+    svpn_data = _rest("POST", "/sdwan/v2.0/api/topology/links/query", {
+        "limit": 1000,
+        "dest_page": 1,
+        "query_params": {
+            "or": {
+                "source_site_id": {"in": [site_id]},
+                "target_site_id": {"in": [site_id]},
+            },
+            "type": {"in": ["servicelink"]},
+        },
+    })
+    svpn_links = (svpn_data or {}).get("items", [])
+    svpn_total = len(svpn_links)
+    _log.info(f"get_network_status: site={site_id} svpn_links={svpn_total}")
 
-    def _fetch_vpn_link_status(link):
-        link_id = link.get("id")
-        actual = "down"
-        if link_id and not link.get("_topo"):
-            for _ver in ("v2.2", "v2.1", "v2.0"):
-                sd = _rest("GET", f"/sdwan/{_ver}/api/vpnlinks/{link_id}/status")
-                if sd:
-                    st = (sd.get("state") or sd.get("vpnlink_state") or "").lower()
-                    actual = "up" if st in _UP_STATES else "init" if st in ("init", "initializing", "pending") else "down"
-                    break
-        if actual == "down":
-            raw = (link.get("state") or link.get("status") or link.get("vpnlink_state") or "").lower()
-            actual = "up" if raw in _UP_STATES else "init" if raw in ("init", "initializing") else "down"
-        return actual
-
-    # Resolve peer site IDs to names for display using SDK
-    site_name_map = {}
-    try:
-        for s in (_safe_items(sdk.get.sites()) or []):
-            if s.get("id"):
-                site_name_map[s["id"]] = s.get("name") or s["id"]
-    except Exception:
-        pass
-
-    vpn_total = len(vpn_links_raw)
-    vpn_up_peers = []
-    if vpn_links_raw:
-        with ThreadPoolExecutor(max_workers=8) as _pool:
-            futs = {_pool.submit(_fetch_vpn_link_status, lnk): lnk for lnk in vpn_links_raw}
-            _futures_wait(futs, timeout=12)
-            for fut, lnk in futs.items():
-                try:
-                    if fut.result() == "up":
-                        vpn_up += 1
-                        pid = lnk.get("dest_site_id") or lnk.get("target_site_id")
-                        if pid and pid != site_id:
-                            vpn_up_peers.append(site_name_map.get(pid, pid))
-                except Exception:
-                    pass
-
-    # If REST query returned links but none show UP, topology may have better status data.
-    # Only use this fallback when no specific element_id is scoped — topology is site-wide
-    # and would incorrectly show other devices' tunnels as belonging to the new device.
-    if vpn_total > 0 and vpn_up == 0:
-        topo = _topology_links_query(sdk, site_id)
-        topo_up = 0
-        topo_peers = []
-        for link in topo:
-            if link.get("type") in ("public-anynet", "private-anynet"):
-                raw = (link.get("status") or link.get("state") or "").lower()
-                if raw in _UP_STATES:
-                    topo_up += 1
-                    pid = link.get("target_site_id") or link.get("source_site_id")
-                    if pid and pid != site_id:
-                        topo_peers.append(site_name_map.get(pid, pid))
-        if topo_up > 0:
-            _log.info(f"get_network_status: REST showed 0/{vpn_total} up; topology shows {topo_up} up — using topology")
-            vpn_up = topo_up
-            vpn_up_peers = topo_peers
-
-    # Deduplicate while preserving order
-    seen = set()
-    vpn_peers_unique = [p for p in vpn_up_peers if not (p in seen or seen.add(p))]
+    for link in svpn_links:
+        if (link.get("status") or "").lower() == "up":
+            svpn_up += 1
 
     # ------------------------------------------------------------------
     # 2. Prisma Access connections
     # ------------------------------------------------------------------
     pa_up = pa_total = 0
-    pa_conns = []
 
-    d = _rest("GET", f"/sdwan/v2.0/api/sites/{site_id}/prismasase_connections")
-    if d:
-        pa_conns = d.get("items", [])
+    pa_config = _rest("GET", f"/sdwan/v2.1/api/sites/{site_id}/prismasase_connections")
+    pa_total = len((pa_config or {}).get("items", []))
 
-    if not pa_conns:
-        # Fallback: topology auto-sase links
-        topo = _topology_links_query(sdk, site_id)
-        for link in topo:
-            if link.get("type") == "auto-sase":
-                pa_conns.append({
-                    "id": link.get("id"),
-                    "name": "Prisma Access",
-                    "_status": (link.get("status") or "").lower(),
-                    "_topo": True,
-                })
-
-    def _fetch_pa_conn_status(conn):
-        conn_id = conn.get("id")
-        actual = "down"
-        if conn_id and not conn.get("_topo"):
-            sd = _rest("GET", f"/sdwan/v2.0/api/sites/{site_id}/prismasase_connections/{conn_id}/status")
-            if sd:
-                st = (sd.get("state") or "").lower()
-                actual = ("up" if st in ("up", "active", "established")
-                          else "init" if ("init" in st or "pend" in st)
-                          else "down")
-        if actual == "down":
-            raw = conn.get("_status") or (conn.get("status") or "")
-            actual = "up" if raw == "up" else "init" if raw in ("init", "initializing") else "down"
-        return actual
-
-    pa_total = len(pa_conns)
-    if pa_conns:
-        with ThreadPoolExecutor(max_workers=8) as _pool:
-            futs = {_pool.submit(_fetch_pa_conn_status, c): c for c in pa_conns}
-            _futures_wait(futs, timeout=12)
-            for fut in futs:
-                try:
-                    if fut.result() == "up":
-                        pa_up += 1
-                except Exception:
-                    pass
+    if pa_total > 0:
+        pa_status_data = _rest("POST", "/sdwan/v2.0/api/prismasase_connections/status/query", {
+            "query_params": {"site_id": {"in": [site_id]}},
+        })
+        for conn in ((pa_status_data or {}).get("items", [])):
+            if (conn.get("state") or conn.get("status") or "").lower() == "up":
+                pa_up += 1
 
     # ------------------------------------------------------------------
     # 3. Element interfaces — port config + per-interface physical status
@@ -964,7 +895,7 @@ def get_network_status(sdk, site_id, element_id):
     # ------------------------------------------------------------------
     fabric = [
         {
-            "name":      "Data Center",
+            "name":      "Sites Connected to",
             "connected": vpn_up > 0,
             "up":        vpn_up,
             "count":     vpn_total,
@@ -976,18 +907,27 @@ def get_network_status(sdk, site_id, element_id):
             "up":        pa_up,
             "count":     pa_total,
         },
+        {
+            "name":      "Standard VPN",
+            "connected": svpn_up > 0,
+            "up":        svpn_up,
+            "count":     svpn_total,
+        },
     ]
 
-    vpn_ok = vpn_total == 0 or vpn_up > 0
-    pa_ok  = pa_total  == 0 or pa_up  > 0
-    wan_ok = wan_total == 0 or wan_up > 0
-    all_up = vpn_ok and pa_ok and wan_ok
+    vpn_ok  = vpn_total  == 0 or vpn_up  > 0
+    pa_ok   = pa_total   == 0 or pa_up   > 0
+    svpn_ok = svpn_total == 0 or svpn_up > 0
+    wan_ok  = wan_total  == 0 or wan_up  > 0
+    all_up  = vpn_ok and pa_ok and svpn_ok and wan_ok
 
     parts = []
     if vpn_total:
-        parts.append(f"Data Center: {vpn_up}/{vpn_total} tunnel(s) up")
+        parts.append(f"Secure Fabric: {vpn_up}/{vpn_total} up")
     if pa_total:
         parts.append(f"Prisma Access: {pa_up}/{pa_total} up")
+    if svpn_total:
+        parts.append(f"Standard VPN: {svpn_up}/{svpn_total} up")
     if wan_total:
         parts.append(f"WAN: {wan_up}/{wan_total} port(s) up")
     message = " · ".join(parts) if parts else "Network check complete"
@@ -1876,7 +1816,7 @@ def _poll_once():
 
                 net_status = get_network_status(sdk, job["site_id"], element_id_for_check)
                 raw_ok = net_status.get("raw_ok", False)
-                total_links = net_status["fabric"][0]["count"] + net_status["fabric"][1]["count"]
+                total_links = sum(r["count"] for r in net_status["fabric"])
 
                 _log.info(f"[{jid}] fabric_check: raw_ok={raw_ok} total_links={total_links} "
                           f"all_up={net_status['all_up']} elapsed={elapsed_str}")
@@ -1887,7 +1827,7 @@ def _poll_once():
                                 message=f"Installation complete! {net_status['message']}",
                                 network_status=net_status, assigned_at=now, last_checked=now)
                     _audit(job["id"], "Fabric check passed → assigned",
-                           api="GET /sdwan/v2.0/api/vpnlinks/query", result="ok",
+                           api="POST /sdwan/v2.0/api/topology/links/query", result="ok",
                            detail=f"elapsed={elapsed_str} total_links={total_links} {net_status.get('message','')[:100]}")
 
                 elif elapsed_fabric > 90:
@@ -1896,7 +1836,7 @@ def _poll_once():
                                 message="Installation complete! Device is connected — tunnels will initialize automatically.",
                                 network_status=net_status, assigned_at=now, last_checked=now)
                     _audit(job["id"], "Fabric check timeout → assigned",
-                           api="GET /sdwan/v2.0/api/vpnlinks/query", result="err",
+                           api="POST /sdwan/v2.0/api/topology/links/query", result="err",
                            detail=f"elapsed={elapsed_str} raw_ok={raw_ok} total_links={total_links}")
 
                 else:

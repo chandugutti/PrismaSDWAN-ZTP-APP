@@ -1910,7 +1910,12 @@
             ℹ️ Backup device WAN/LAN ports DOWN is expected — device is in standby mode. Only the HA heartbeat port should be UP.
           </div>
         </div>
-        <button class="btn btn-primary" onclick="resetApp()">Install Another Device</button>
+        <!-- HA: shown after D1 completes when haMode is active -->
+        <button class="btn btn-green" id="d2-continue-btn" onclick="showD2PowerOn()" style="display:none;">
+          📦 Continue: Install Device 2 →
+        </button>
+
+        <button class="btn btn-primary" id="reset-app-btn" onclick="resetApp()">Install Another Device</button>
       </div>
 
       <!-- Failed state -->
@@ -1932,6 +1937,72 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- SCREEN: DEVICE 2 POWER-ON GUIDANCE (HA only)              -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="screen-d2-poweron" class="screen">
+      <div class="card">
+        <div class="card-label">Device 1 Done — Now Install Device 2</div>
+
+        <!-- D1 success callout -->
+        <div style="display:flex;align-items:center;gap:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;margin-bottom:18px;">
+          <span style="font-size:20px;">✅</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#15803d;">Device 1 Successfully Installed</div>
+            <div id="d2-d1-site" style="font-size:12px;color:#166534;margin-top:2px;"></div>
+          </div>
+        </div>
+
+        <!-- Power on banner -->
+        <div style="display:flex;align-items:flex-start;gap:12px;background:#fffbeb;border:1px solid #fbbf24;border-radius:10px;padding:14px 16px;margin-bottom:18px;">
+          <span style="font-size:24px;line-height:1;">⚡</span>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#92400e;">Power On Device 2</div>
+            <div style="font-size:12px;color:#78350f;margin-top:3px;">S/N: <span id="d2-poweron-sn" style="font-family:monospace;font-weight:700;"></span></div>
+          </div>
+        </div>
+
+        <!-- Port diagram (same as Device 1 port confirmation) -->
+        <div id="d2-port-card" style="margin-bottom:18px;"></div>
+
+        <!-- Step-by-step guide -->
+        <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em;">Follow These Steps</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="min-width:24px;height:24px;background:#003057;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">1</div>
+            <div style="font-size:13px;color:#374151;padding-top:3px;">Walk to the <strong>Device 2</strong> rack location in the equipment room.</div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="min-width:24px;height:24px;background:#003057;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">2</div>
+            <div style="font-size:13px;color:#374151;padding-top:3px;"><strong>Verify all cables are plugged in</strong> per the port diagram above before powering on.</div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="min-width:24px;height:24px;background:#003057;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">3</div>
+            <div style="font-size:13px;color:#374151;padding-top:3px;"><strong>Connect the power cable</strong> — the device will start booting automatically.</div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="min-width:24px;height:24px;background:#003057;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">4</div>
+            <div style="font-size:13px;color:#374151;padding-top:3px;">Wait for the <strong>boot indicator</strong> (front-panel lights steady) — about <strong>2–3 minutes</strong>. Then tap the button below.</div>
+          </div>
+
+        </div>
+
+        <!-- Start button -->
+        <button class="btn btn-green" id="d2-start-btn" onclick="startD2Installation()">
+          ▶ Start Device 2 Installation
+        </button>
+
+        <button class="back-link" onclick="showScreen('screen-progress')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Device 1 Status
+        </button>
+      </div>
     </div>
 
   </div><!-- /content -->
@@ -1984,6 +2055,7 @@ let haMode = false;        // true when site has 2+ unclaimed shells
 let haShells = [];         // [{shell_id, serial_number, ports}] for HA checklist
 let haSerials = ['', ''];  // [sn1, sn2] — sn1 = from main serial-input
 let _scanTarget = 'main';  // 'main' | 'ha2' — which input scanner populates
+let d2JobStarted = false;  // true once Device 2 installation has been kicked off
 
 // Fix admin link for sasesensai prefix
 document.getElementById('admin-link').href = BASE + '/admin';
@@ -2719,22 +2791,28 @@ function computeCrossConnects(pc1, pc2) {
 }
 
 function buildHADiagramSVG(pc1, pc2, cc) {
-  const makePorts = (pc, crossTargets, lanToPeer) => {
+  const makePorts = (pc, lanToPeer) => {
+    // Logical bypass interfaces share the same circuit as this device's bypass pair —
+    // exclude them from wan_ports so the compound-numbered ports (port43-style) don't appear.
+    const ownBypassCircuits = new Set(
+      (pc.bypass_pairs || []).map(bp => bp.circuit).filter(Boolean)
+    );
     const rows = [];
     (pc.bypass_pairs || []).forEach(bp => {
-      rows.push({ type: 'isp',     name: bp.wan_port, circuit: bp.circuit || '', peer: null });
-      rows.push({ type: 'cc-send', name: bp.lan_port, circuit: bp.circuit || '', peer: lanToPeer[bp.lan_port] || null });
+      // Physical bypass WAN port — ISP cable plugs in here
+      rows.push({ type: 'bypass-wan', name: bp.wan_port, circuit: bp.circuit || '', peer: null });
+      // Physical bypass LAN port — cross-connect cable plugs in here
+      rows.push({ type: 'bypass-lan', name: bp.lan_port, circuit: bp.circuit || '', peer: lanToPeer[bp.lan_port] || null });
     });
-    (pc.wan_ports || []).forEach(p => {
-      rows.push({ type: crossTargets.has(p.name) ? 'cc-recv' : 'isp', name: p.name, circuit: p.circuit || '', peer: null });
+    // Regular WAN ports — exclude any whose circuit matches a bypass pair circuit (filters port43-style logical interfaces)
+    (pc.wan_ports || []).filter(p => !ownBypassCircuits.has(p.circuit)).forEach(p => {
+      rows.push({ type: 'isp', name: p.name, circuit: p.circuit || '', peer: null });
     });
-    (pc.ha_ports || []).forEach(p => rows.push({ type: 'ha',  name: p.name, circuit: '', peer: null }));
-    (pc.lan_ports || []).forEach(p => rows.push({ type: 'lan', name: p.name, circuit: '', peer: null }));
     return rows;
   };
 
-  const d1 = makePorts(pc1, cc.d1WanIsCrossTarget, cc.d1LanToPeerWan);
-  const d2 = makePorts(pc2, cc.d2WanIsCrossTarget, cc.d2LanToPeerWan);
+  const d1 = makePorts(pc1, cc.d1LanToPeerWan);
+  const d2 = makePorts(pc2, cc.d2LanToPeerWan);
   if (!d1.length && !d2.length) return '';
 
   // Layout constants
@@ -2748,15 +2826,15 @@ function buildHADiagramSVG(pc1, pc2, cc) {
 
   const pY = (list, idx) => BY + HDR + idx * RH + RH / 2;
 
-  const C = { isp: '#ea580c', 'cc-send': '#7c3aed', 'cc-recv': '#7c3aed', ha: '#b91c1c', lan: '#16a34a' };
-  const LBL = { isp: 'WAN', 'cc-send': 'CC', 'cc-recv': 'CC', ha: 'HA', lan: 'LAN' };
-  const BG  = { isp: '#fff7ed', 'cc-send': '#ede9fe', 'cc-recv': '#ede9fe', ha: '#fef2f2', lan: '#f0fdf4' };
+  const C   = { isp: '#ea580c', 'bypass-wan': '#ea580c', 'bypass-lan': '#7c3aed', ha: '#b91c1c' };
+  const LBL = { isp: 'WAN',    'bypass-wan': 'WAN',      'bypass-lan': '',        ha: 'HA' };
+  const BG  = { isp: '#fff7ed', 'bypass-wan': '#fff7ed', 'bypass-lan': '#ede9fe', ha: '#fef2f2' };
 
   let s = '';
 
-  // ── ISP labels above boxes ─────────────────────────────────────────────────
-  const d1Isp = d1.filter(p => p.type === 'isp').map(p => p.circuit || 'ISP');
-  const d2Isp = d2.filter(p => p.type === 'isp').map(p => p.circuit || 'ISP');
+  // ── ISP labels above boxes (bypass-wan ports carry the ISP circuit) ─────────
+  const d1Isp = d1.filter(p => p.type === 'bypass-wan' || p.type === 'isp').map(p => p.circuit || 'ISP');
+  const d2Isp = d2.filter(p => p.type === 'bypass-wan' || p.type === 'isp').map(p => p.circuit || 'ISP');
   const ispLabel = (circuits, cx) => {
     const txt = circuits.slice(0, 2).join(' / ').substring(0, 18) || 'ISP';
     return `<text x="${cx}" y="${BY - 18}" text-anchor="middle" font-size="7" font-weight="600" fill="#ea580c" font-family="-apple-system,sans-serif">${esc(txt)}</text>
@@ -2765,45 +2843,28 @@ function buildHADiagramSVG(pc1, pc2, cc) {
   if (d1Isp.length) s += ispLabel(d1Isp, BX1 + BW / 2);
   if (d2Isp.length) s += ispLabel(d2Isp, BX2 + BW / 2);
 
-  // ── LAN labels below boxes ─────────────────────────────────────────────────
-  const d1HasLan = d1.some(p => p.type === 'lan');
-  const d2HasLan = d2.some(p => p.type === 'lan');
-  const lanLabel = (cx) =>
-    `<line x1="${cx}" y1="${BY + bh}" x2="${cx}" y2="${SH - 14}" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="3,2"/>
-     <text x="${cx}" y="${SH - 4}" text-anchor="middle" font-size="7" fill="#16a34a" font-family="-apple-system,sans-serif">▼ Switch</text>`;
-  if (d1HasLan) s += lanLabel(BX1 + BW / 2);
-  if (d2HasLan) s += lanLabel(BX2 + BW / 2);
-
   // ── Cross-connect lines (drawn behind boxes) ───────────────────────────────
+  // D1 bypass-lan → D2 regular WAN (isp)
   d1.forEach((p, i) => {
-    if (p.type !== 'cc-send' || !p.peer) return;
-    const j = d2.findIndex(q => q.name === p.peer && q.type === 'cc-recv');
+    if (p.type !== 'bypass-lan' || !p.peer) return;
+    const j = d2.findIndex(q => q.name === p.peer);
     if (j < 0) return;
     const y1 = pY(d1, i), y2 = pY(d2, j);
     const mx = (d1R + d2L) / 2, my = (y1 + y2) / 2;
-    s += `<line x1="${d1R}" y1="${y1}" x2="${d2L}" y2="${y2}" stroke="${C['cc-send']}" stroke-width="1.5"/>`;
-    const cshort = (p.circuit || 'CC').substring(0, 12);
-    s += `<text x="${mx}" y="${my - 3}" text-anchor="middle" font-size="6" fill="${C['cc-send']}" font-family="-apple-system,sans-serif">${esc(cshort)}</text>`;
+    s += `<line x1="${d1R}" y1="${y1}" x2="${d2L}" y2="${y2}" stroke="#7c3aed" stroke-width="1.5"/>`;
+    s += `<text x="${mx}" y="${my - 3}" text-anchor="middle" font-size="6" fill="#7c3aed" font-family="-apple-system,sans-serif">cross-connect</text>`;
   });
+  // D2 bypass-lan → D1 regular WAN (isp)
   d2.forEach((p, i) => {
-    if (p.type !== 'cc-send' || !p.peer) return;
-    const j = d1.findIndex(q => q.name === p.peer && q.type === 'cc-recv');
+    if (p.type !== 'bypass-lan' || !p.peer) return;
+    if (d1.some(q => q.type === 'bypass-lan' && q.peer === p.name)) return; // avoid double-draw
+    const j = d1.findIndex(q => q.name === p.peer);
     if (j < 0) return;
     const y1 = pY(d2, i), y2 = pY(d1, j);
     const mx = (d1R + d2L) / 2, my = (y1 + y2) / 2;
-    s += `<line x1="${d2L}" y1="${y1}" x2="${d1R}" y2="${y2}" stroke="${C['cc-send']}" stroke-width="1.5"/>`;
-    const cshort = (p.circuit || 'CC').substring(0, 12);
-    s += `<text x="${mx}" y="${my + 8}" text-anchor="middle" font-size="6" fill="${C['cc-send']}" font-family="-apple-system,sans-serif">${esc(cshort)}</text>`;
+    s += `<line x1="${d2L}" y1="${y1}" x2="${d1R}" y2="${y2}" stroke="#7c3aed" stroke-width="1.5"/>`;
+    s += `<text x="${mx}" y="${my + 8}" text-anchor="middle" font-size="6" fill="#7c3aed" font-family="-apple-system,sans-serif">cross-connect</text>`;
   });
-
-  // ── HA heartbeat line ──────────────────────────────────────────────────────
-  const hi1 = d1.findIndex(p => p.type === 'ha');
-  const hi2 = d2.findIndex(p => p.type === 'ha');
-  if (hi1 >= 0 && hi2 >= 0) {
-    const y1 = pY(d1, hi1), y2 = pY(d2, hi2);
-    s += `<line x1="${d1R}" y1="${y1}" x2="${d2L}" y2="${y2}" stroke="${C.ha}" stroke-width="1.5" stroke-dasharray="4,3"/>`;
-    s += `<text x="${(d1R + d2L) / 2}" y="${(y1 + y2) / 2 - 2}" text-anchor="middle" font-size="6" fill="${C.ha}" font-family="-apple-system,sans-serif">Heartbeat</text>`;
-  }
 
   // ── Device boxes ───────────────────────────────────────────────────────────
   const box = (bx, label) => `
@@ -2830,9 +2891,15 @@ function buildHADiagramSVG(pc1, pc2, cc) {
       s += `<text x="${bx + 23}" y="${cy + 4}" font-size="7" font-weight="600" fill="${c}" font-family="-apple-system,sans-serif">${LBL[p.type] || ''}</text>`;
       const circ = (p.circuit || '').substring(0, 11);
       if (circ) s += `<text x="${bx + 47}" y="${cy + 4}" font-size="6.5" fill="#64748b" font-family="-apple-system,sans-serif">${esc(circ)}</text>`;
-      // connection dot on box edge
-      if (p.type !== 'isp' && p.type !== 'lan')
-        s += `<circle cx="${dotX}" cy="${cy}" r="2.8" fill="${c}"/>`;
+      // connection dot on box edge — for bypass-lan (cross-connect cable end)
+      if (p.type === 'bypass-lan' && p.peer)
+        s += `<circle cx="${dotX}" cy="${cy}" r="2.8" fill="#7c3aed"/>`;
+      // dot on the receiving WAN port side
+      if (p.type === 'isp' && (
+          d1.some(q => q.type === 'bypass-lan' && q.peer === p.name) ||
+          d2.some(q => q.type === 'bypass-lan' && q.peer === p.name)
+      ))
+        s += `<circle cx="${dotX}" cy="${cy}" r="2.8" fill="#7c3aed"/>`;
     });
   };
   drawPorts(d1, true);
@@ -2852,10 +2919,8 @@ function buildHADiagramSVG(pc1, pc2, cc) {
         ${s}
       </svg>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:9px;color:#64748b;">
-        <span style="color:#ea580c;">■ ISP/WAN</span>
-        <span style="color:#7c3aed;">■ Cross-connect</span>
-        <span style="color:#b91c1c;">■ HA heartbeat</span>
-        <span style="color:#16a34a;">■ LAN</span>
+        <span style="color:#ea580c;">■ WAN (ISP-facing)</span>
+        <span style="color:#7c3aed;">■ Cross-connect cable</span>
       </div>
     </div>
   </div>`;
@@ -2979,8 +3044,8 @@ function buildDeviceCard(devNum, sn, confirmed, pc, cc) {
       const pair = cc.haPairs.find(h => isD1 ? h.p1 === p.name : h.p2 === p.name);
       const peerPort = pair ? (isD1 ? pair.p2 : pair.p1) : null;
       const haDesc = peerPort
-        ? `HA heartbeat cable → Device ${peerNum} Port ${esc(peerPort)}`
-        : `HA heartbeat cable to peer ION device`;
+        ? `HA cable → Device ${peerNum} Port ${esc(peerPort)}`
+        : `HA cable to peer ION device`;
       portsHtml += `
         <div class="port-item" style="border-left:3px solid #f3b950;">
           <div class="port-icon">🔗</div>
@@ -3564,7 +3629,7 @@ function buildNetRows(ns) {
         </div>`;
       } else {
         let rightHtml = `<span class="ns-fabric-status ${statusCls}">${statusTxt}</span>`;
-        if (!none && row.count > 0) {
+        if (!none && row.up > 0) {
           rightHtml += `<span class="ns-fabric-count">${row.up}/${row.count} tunnel${row.count !== 1 ? 's' : ''}</span>`;
         }
         html += `<div class="ns-fabric-row">
@@ -3745,10 +3810,35 @@ function transitionToComplete() {
   document.getElementById('complete-success').classList.add('show');
   const job = _pendingCompleteJob;
   if (!job) return;
-  if (haMode) {
-    loadHARoles(job);
-  } else {
+
+  const isHaD2 = haMode && d2JobStarted;
+  const isHaD1 = haMode && !d2JobStarted && haShells.length >= 2 && !!haSerials[1];
+
+  if (isHaD2) {
+    // Both devices fully installed — show site summary with both S/Ns
+    const sn1 = haSerials[0] || '—';
+    const sn2 = haSerials[1] || '—';
+    document.getElementById('success-site-line').innerHTML =
+      `<strong>Site: ${esc(job.site_name || '')}</strong><br>` +
+      `<span style="font-family:monospace;font-size:12px;">Device 1 S/N: ${esc(sn1)}</span><br>` +
+      `<span style="font-family:monospace;font-size:12px;">Device 2 S/N: ${esc(sn2)}</span>`;
     document.getElementById('ha-roles-card').style.display = 'none';
+    document.getElementById('d2-continue-btn').style.display = 'none';
+    const resetBtn = document.getElementById('reset-app-btn');
+    resetBtn.style.display = '';
+    resetBtn.textContent = '🏢 Install Another Site';
+  } else if (isHaD1) {
+    // D1 done, D2 still to install
+    loadHARoles(job);
+    document.getElementById('d2-continue-btn').style.display = '';
+    document.getElementById('reset-app-btn').style.display = 'none';
+  } else {
+    // Single-device (non-HA) completion
+    document.getElementById('ha-roles-card').style.display = 'none';
+    document.getElementById('d2-continue-btn').style.display = 'none';
+    const resetBtn = document.getElementById('reset-app-btn');
+    resetBtn.style.display = '';
+    resetBtn.textContent = 'Install Another Device';
   }
 }
 
@@ -3778,6 +3868,94 @@ function buildPortValHtml(validation) {
     }
   });
   return html;
+}
+
+// ── Device 2 Installation (HA flow) ──────────────────────────────────────────
+
+function showD2PowerOn() {
+  const d2Serial = haSerials[1] || '';
+  const d2Shell  = haShells[1] || {};
+  const d1Shell  = haShells[0] || {};
+  const pc2 = d2Shell.ports || {};
+  const pc1 = d1Shell.ports || {};
+  const cc  = computeCrossConnects(pc1, pc2);
+
+  document.getElementById('d2-poweron-sn').textContent = d2Serial || '—';
+  document.getElementById('d2-d1-site').textContent =
+    currentJob ? `Site: ${currentJob.site_name || selectedSite?.name || ''}` : '';
+
+  // Show the same port diagram as Device 1 port confirmation
+  const cardEl = document.getElementById('d2-port-card');
+  if (Object.keys(pc2).length) {
+    cardEl.innerHTML = buildDeviceCard(2, d2Serial, true, pc2, cc);
+  } else {
+    cardEl.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:8px 0;">Cable details not available — verify all ports per the HA diagram.</div>';
+  }
+
+  const btn = document.getElementById('d2-start-btn');
+  btn.disabled = false;
+  btn.textContent = '▶ Start Device 2 Installation';
+
+  showScreen('screen-d2-poweron');
+}
+
+async function startD2Installation() {
+  const d2Serial = haSerials[1];
+  const d2Shell  = haShells[1] || {};
+
+  if (!d2Serial) {
+    showToast('Device 2 serial number not found — please start over.');
+    return;
+  }
+
+  const btn = document.getElementById('d2-start-btn');
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+
+  try {
+    const createRes = await fetch(BASE + '/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serial_number:    d2Serial,
+        element_shell_id: d2Shell.shell_id || undefined,
+        site_id:          selectedSite.id,
+        site_name:        selectedSite.name,
+      }),
+    });
+    const createData = await createRes.json();
+    if (!createRes.ok) {
+      showToast(createData.error || 'Could not create Device 2 job.');
+      btn.disabled = false;
+      btn.textContent = '▶ Start Device 2 Installation';
+      return;
+    }
+
+    currentJob = createData.job;
+    const startRes = await fetch(BASE + `/api/jobs/${currentJob.id}/start`, { method: 'POST' });
+    const startData = await startRes.json();
+    if (!startRes.ok) {
+      showToast(startData.error || 'Could not start Device 2 installation.');
+      btn.disabled = false;
+      btn.textContent = '▶ Start Device 2 Installation';
+      return;
+    }
+
+    currentJob = startData.job;
+    startTime = Date.now();
+    d2JobStarted = true;
+    // Hide D2 button so if user returns to success screen it doesn't re-show
+    document.getElementById('d2-continue-btn').style.display = 'none';
+    document.getElementById('reset-app-btn').style.display = '';
+    document.getElementById('complete-success').classList.remove('show');
+    showScreen('screen-progress');
+    resetProgressUI();
+    startPolling();
+  } catch {
+    showToast('Network error. Please try again.');
+    btn.disabled = false;
+    btn.textContent = '▶ Start Device 2 Installation';
+  }
 }
 
 async function loadHARoles(job) {
@@ -3932,6 +4110,8 @@ function resetApp() {
   conflictJob = null;
   locateResult = null;
   selectedSite = null;
+  d2JobStarted = false;
+  document.getElementById('reset-app-btn').textContent = 'Install Another Device';
   document.getElementById('conflict-card').style.display = 'none';
   startTime = null;
   document.getElementById('serial-input').value = '';
