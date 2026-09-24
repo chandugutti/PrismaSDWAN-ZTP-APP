@@ -1,0 +1,7 @@
+{
+  "radius_km": 100.0,
+  "use_test_location": false,
+  "test_lat": null,
+  "test_lon": null,
+  "test_ip": null
+}
